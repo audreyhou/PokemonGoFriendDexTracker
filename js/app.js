@@ -35,7 +35,7 @@
     exportUser: $('export-user'), exportAll: $('export-all'), importButton: $('import-button'), importFile: $('import-file'),
     title: $('dex-title'), blurb: $('dex-blurb'), progressCount: $('progress-count'), progressPct: $('progress-pct'),
     progressBar: $('progress-bar'), userUpdated: $('user-updated'),
-    search: $('search'), genFilter: $('gen-filter'), statusFilter: $('status-filter'), kindFilter: $('kind-filter'),
+    search: $('search'), evolutionFilter: $('evolution-filter'), genFilter: $('gen-filter'), statusFilter: $('status-filter'), kindFilter: $('kind-filter'),
     unreleasedFilter: $('unreleased-filter'), welcome: $('welcome'), dex: $('dex'), dataDate: $('data-date'),
     dropOverlay: $('drop-overlay'), toast: $('toast'),
     nameDialog: $('name-dialog'), nameForm: $('name-form'), nameTitle: $('name-title'), nameInput: $('name-input'), nameError: $('name-error'),
@@ -54,8 +54,18 @@
   }));
   const byId = new Map(entries.map((e) => [e.id, e]));
 
+  // Dex number -> every dex number in its evolution families (a species can be in several,
+  // e.g. Meowth is in both the Meowth -> Persian and Galarian Meowth -> Perrserker lines).
+  const relativesByDex = new Map();
+  DATA.families.forEach((family) => {
+    family.forEach((dex) => {
+      if (!relativesByDex.has(dex)) relativesByDex.set(dex, new Set());
+      family.forEach((relative) => relativesByDex.get(dex).add(relative));
+    });
+  });
+
   let state = Store.load();
-  const filters = { search: '', gen: '', status: '', kind: '', unreleased: false };
+  const filters = { search: '', evolution: false, gen: '', status: '', kind: '', unreleased: false };
   let genCounts = [];
   let saveTimer = null;
   let toastTimer = null;
@@ -137,11 +147,24 @@
     return true;
   }
 
-  function isVisible(e, caught) {
+  /* With "Include evolution line", a search for a Pokémon also shows every member of its
+     evolution family. Costume names are ignored here so "Pikachu" does not pull in the
+     Bulbasaur line just because of Bulbasaur's Pikachu visor costume. */
+  function evolutionLineDexes() {
+    if (!filters.search || !filters.evolution) return null;
+    const dexes = new Set();
+    entries.forEach((e) => {
+      if (e.costume || !e.key.includes(filters.search)) return;
+      (relativesByDex.get(e.dex) || new Set([e.dex])).forEach((dex) => dexes.add(dex));
+    });
+    return dexes;
+  }
+
+  function isVisible(e, caught, lineDexes) {
     if (filters.gen !== '' && e.gen !== Number(filters.gen)) return false;
     if (filters.status === 'caught' && !caught.has(e.id)) return false;
     if (filters.status === 'missing' && caught.has(e.id)) return false;
-    return !filters.search || e.key.includes(filters.search);
+    return !filters.search || e.key.includes(filters.search) || (!!lineDexes && lineDexes.has(e.dex));
   }
 
   function cardHtml(e, isCaught, shiny) {
@@ -173,6 +196,7 @@
     els.welcome.hidden = !!user;
 
     genCounts = gens.map(() => ({ caught: 0, total: 0 }));
+    const lineDexes = evolutionLineDexes();
     const html = [];
     let openGen = -1;
     entries.forEach((e) => {
@@ -180,7 +204,7 @@
       const has = caught.has(e.id);
       genCounts[e.gen].total += 1;
       if (has) genCounts[e.gen].caught += 1;
-      if (!isVisible(e, caught)) return;
+      if (!isVisible(e, caught, lineDexes)) return;
       if (e.gen !== openGen) {
         if (openGen >= 0) html.push('</div></section>');
         openGen = e.gen;
@@ -438,6 +462,7 @@
       render();
     }, 150);
   });
+  els.evolutionFilter.addEventListener('change', () => { filters.evolution = els.evolutionFilter.checked; render(); });
   els.genFilter.addEventListener('change', () => { filters.gen = els.genFilter.value; render(); });
   els.statusFilter.addEventListener('change', () => { filters.status = els.statusFilter.value; render(); });
   els.kindFilter.addEventListener('change', () => { filters.kind = els.kindFilter.value; render(); });

@@ -97,6 +97,17 @@ class CleanLabelTest(unittest.TestCase):
         self.assertEqual(build_dex.clean_label("Party hat (red)", "Bulbasaur"), "Party hat – red")
 
 
+class ParseFamiliesTest(unittest.TestCase):
+    def test_reads_guarded_json_and_flattens_branching_stages(self):
+        text = (';for(;;);[[{"265":[3,"wurmple",1,600,"Wurmple"]},'
+                '{"266":[3,"silcoon",1,601,"Silcoon"],"268":[3,"cascoon",1,602,"Cascoon"]}],'
+                '[{"52":[8,"meowth",1,64,"Galarian Meowth"]},{"863":[8,"perrserker",1,700,"Perrserker"]}]];')
+
+        families = build_dex.parse_families(build_dex.parse_gameinfo(text))
+
+        self.assertEqual(families, [[265, 266, 268], [52, 863]])
+
+
 class BuildTest(unittest.TestCase):
     def test_merges_gameinfo_costumes_and_excludes_megas(self):
         gameinfo = {
