@@ -7,8 +7,10 @@ every Pokémon, regional form and costume Pokémon. Progress is shared by sendin
 
 ## Using it
 
-Open `index.html` in a browser (double-clicking it works), or host the folder on any static host
-such as GitHub Pages (Settings → Pages → deploy from the `main` branch root).
+**Live site: https://audreyhou.github.io/PokemonGoFriendDexTracker/**
+
+You can also open `index.html` in a browser (double-clicking it works) or host the folder on any
+other static host. The live site is published by GitHub Pages from the root of the `main` branch.
 
 - **Trainers** – choose **+ New** and enter a username. Switch between trainers with the
   *Trainer* dropdown; each trainer has a separate set of all eight Pokédexes. There is no account
