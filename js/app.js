@@ -69,6 +69,7 @@
   let genCounts = [];
   let saveTimer = null;
   let toastTimer = null;
+  let rangeAnchorId = null; // last clicked Pokémon; the start of a Shift+click range
 
   // ------------------------------------------------------------------ helpers
 
@@ -196,6 +197,7 @@
     els.welcome.hidden = !!user;
 
     genCounts = gens.map(() => ({ caught: 0, total: 0 }));
+    rangeAnchorId = null;
     const lineDexes = evolutionLineDexes();
     const html = [];
     let openGen = -1;
@@ -398,6 +400,24 @@
 
   // ------------------------------------------------------------------ events
 
+  function setCaught(set, button, caught) {
+    const id = button.dataset.id;
+    if (set.has(id) === caught) return;
+    if (caught) set.add(id);
+    else set.delete(id);
+    button.classList.toggle('caught', caught);
+    button.setAttribute('aria-pressed', String(caught));
+    genCounts[byId.get(id).gen].caught += caught ? 1 : -1;
+  }
+
+  // Shift+click would otherwise also select the page text between the two clicks.
+  els.dex.addEventListener('mousedown', (event) => {
+    if (event.shiftKey && event.target.closest('button.mon')) event.preventDefault();
+  });
+
+  /* Click toggles one Pokémon. Shift+click gives every card shown between the previously
+     clicked card and this one the same state as the previously clicked card, so a range can be
+     checked or unchecked in one go. */
   els.dex.addEventListener('click', (event) => {
     const button = event.target.closest('button.mon');
     if (!button) return;
@@ -407,13 +427,20 @@
       return;
     }
     const set = user.dex[currentTab()];
-    const id = button.dataset.id;
-    const nowCaught = !set.has(id);
-    if (nowCaught) set.add(id);
-    else set.delete(id);
-    button.classList.toggle('caught', nowCaught);
-    button.setAttribute('aria-pressed', String(nowCaught));
-    genCounts[byId.get(id).gen].caught += nowCaught ? 1 : -1;
+    const anchor = event.shiftKey && rangeAnchorId && rangeAnchorId !== button.dataset.id
+      ? els.dex.querySelector(`button.mon[data-id="${CSS.escape(rangeAnchorId)}"]`)
+      : null;
+    if (anchor) {
+      const buttons = Array.from(els.dex.querySelectorAll('button.mon'));
+      const [from, to] = [buttons.indexOf(anchor), buttons.indexOf(button)].sort((a, b) => a - b);
+      const caught = set.has(rangeAnchorId);
+      const range = buttons.slice(from, to + 1);
+      range.forEach((b) => setCaught(set, b, caught));
+      toast(`${caught ? 'Checked' : 'Unchecked'} ${range.length} Pokémon.`);
+    } else {
+      setCaught(set, button, !set.has(button.dataset.id));
+    }
+    rangeAnchorId = button.dataset.id;
     user.updatedAt = new Date().toISOString();
     updateProgress();
     scheduleSave();

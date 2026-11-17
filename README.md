@@ -16,7 +16,9 @@ other static host. The live site is published by GitHub Pages from the root of t
   *Trainer* dropdown; each trainer has a separate set of all eight Pokédexes. There is no account
   or login — everything is saved in the browser's local storage.
 - **Checking off Pokémon** – click (or tap) a Pokémon image to mark it as owned in the current tab.
-  Missing Pokémon are greyed out.
+  Missing Pokémon are greyed out. To mark many at once, click one Pokémon and then
+  <kbd>Shift</kbd>+click another: every Pokémon shown between them gets the same checked or
+  unchecked state as the first one.
 - **Tabs** – each Pokédex is its own page (`#original`, `#shiny`, `#lucky`, `#xxl`, `#xxs`,
   `#shadow`, `#purified`, `#perfect`). The Shiny tab shows shiny artwork. Shadow and Purified only
   list Pokémon released as Shadow Pokémon, and Lucky leaves out Mythical Pokémon that cannot be
