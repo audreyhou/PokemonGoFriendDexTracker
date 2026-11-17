@@ -72,7 +72,9 @@ are not damaged.
 
 gameinfo also lists some costumes; the script matches those to Bulbapedia's entries (by name, with
 a few hand-verified overrides in `MANUAL_MATCHES`) so each costume appears once. Mega and Primal
-forms are not separate entries.
+forms are not separate entries. Spinda is listed as Patterns #1–#9 like in Pokémon GO; gameinfo's
+extra Spinda forms only reuse Pattern #1's image and are skipped (raise `SPINDA_PATTERNS` if new
+patterns are released).
 
 To refresh the data:
 

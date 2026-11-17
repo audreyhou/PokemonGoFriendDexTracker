@@ -137,6 +137,29 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(by_id["f151"]["noTrade"], 1)
         self.assertEqual(report["unmatchedGameinfo"], ["Bulbasaur (Future Hat)"])
 
+    def test_names_spinda_patterns_from_one_and_skips_placeholders(self):
+        gameinfo = {
+            "data": {
+                "798": gi_entry("Unown", 201),
+                "799": gi_entry("Unown (B)", 201),
+                "828": gi_entry("Spinda", 327),
+                "829": gi_entry("Spinda (01)", 327),
+                "836": gi_entry("Spinda (08)", 327),
+                "837": gi_entry("Spinda (09)", 327),
+            },
+            "links": {"201": [798], "327": [828]},
+        }
+
+        entries, _ = build_dex.build(gameinfo, [])
+
+        self.assertEqual(
+            [(e["id"], e["name"]) for e in entries],
+            [
+                ("f798", "Unown (A)"), ("f799", "Unown (B)"),
+                ("f828", "Spinda (Pattern #1)"), ("f829", "Spinda (Pattern #2)"), ("f836", "Spinda (Pattern #9)"),
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

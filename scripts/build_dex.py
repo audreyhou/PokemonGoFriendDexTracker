@@ -44,6 +44,10 @@ USER_AGENT = (
 
 # Unlisted gameinfo forms that are distinct, collectible Pokédex entries (Unown letters, Spinda).
 FORM_VARIANT_SPECIES = {201, 327}
+# gameinfo numbers Spinda forms from 00 like the game files, so its "Spinda" is Pattern #1 and
+# "Spinda (01)" is Pattern #2. Forms past the last pattern in Pokémon GO reuse Pattern #1's image
+# as a placeholder and are skipped.
+SPINDA_PATTERNS = 9
 # Unlisted gameinfo forms that look identical in GO and are not tracked (Scatterbug/Spewpa patterns).
 HIDDEN_VARIANT_SPECIES = {664, 665}
 # Listed gameinfo forms that Bulbapedia's event list treats as costumes.
@@ -337,6 +341,17 @@ def costume_label(costume: dict, gi_entry: dict | None, shared_name: bool) -> st
     return f"{clean_label(costume['form'], costume['species'])} – {words}"
 
 
+def form_variant_name(entry: dict) -> str | None:
+    """Display name for an Unown or Spinda form, or None for a Spinda placeholder form."""
+    if entry["pokemon"] == 201 and "(" not in entry["name"]:
+        return "Unown (A)"
+    if entry["pokemon"] == 327:
+        number = re.search(r"\((\d+)\)$", entry["name"])
+        pattern = int(number.group(1)) + 1 if number else 1
+        return f"Spinda (Pattern #{pattern})" if pattern <= SPINDA_PATTERNS else None
+    return entry["name"]
+
+
 def build(gameinfo: dict, costumes: list[dict]) -> tuple[list[dict], dict]:
     data = {int(k): v for k, v in gameinfo["data"].items()}
     links = {int(k): v for k, v in gameinfo["links"].items()}
@@ -356,7 +371,9 @@ def build(gameinfo: dict, costumes: list[dict]) -> tuple[list[dict], dict]:
         if dex in FORM_VARIANT_SPECIES:
             forms += sorted(g for g, e in data.items() if e["pokemon"] == dex and g not in listed)
         for gid in forms:
-            add({"id": f"f{gid}", "dex": dex, "name": data[gid]["name"], "gi": gid, **flags(data[gid])})
+            name = form_variant_name(data[gid]) if dex in FORM_VARIANT_SPECIES else data[gid]["name"]
+            if name:
+                add({"id": f"f{gid}", "dex": dex, "name": name, "gi": gid, **flags(data[gid])})
 
     name_counts: dict[tuple[int, str], int] = {}
     for c in costumes:
