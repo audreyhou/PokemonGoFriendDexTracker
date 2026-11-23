@@ -88,9 +88,10 @@
         return;
       }
       if (gen !== generation) return;
-      const ws = new WebSocket(url);
+      const ws = new WebSocket(url, 'json.webpubsub.azure.v1');
       socket = ws;
       ws.onopen = () => {
+        ids.forEach((id, i) => ws.send(JSON.stringify({ type: 'joinGroup', group: `share-${id}`, ackId: i + 1 })));
         retries = 0;
         clearInterval(pollTimer);
         pollTimer = null;
@@ -104,7 +105,9 @@
         } catch (err) {
           return;
         }
-        if (message && typeof message.id === 'string' && ids.includes(message.id)) onChange(message.id);
+        // Group messages arrive as { type: 'message', from: 'group', data: { type, id } }.
+        const data = message && message.type === 'message' && message.from === 'group' ? message.data : null;
+        if (data && typeof data.id === 'string' && ids.includes(data.id)) onChange(data.id);
       };
       ws.onclose = () => {
         if (socket === ws) socket = null;

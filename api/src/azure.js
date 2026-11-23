@@ -13,10 +13,10 @@ function setting(name) {
   return value;
 }
 
-// The Table service error code is in the parsed response body (or a header), not on err.code.
+// The Table service error code is in err.details / the parsed response body, not on err.code.
 function tableErrorCode(err) {
   const response = err.response || {};
-  const odataError = response.parsedBody && response.parsedBody.odataError;
+  const odataError = (err.details && err.details.odataError) || (response.parsedBody && response.parsedBody.odataError);
   if (odataError && odataError.code) return odataError.code;
   const header = response.headers && typeof response.headers.get === 'function' ? response.headers.get('x-ms-error-code') : '';
   return err.code || header || '';
@@ -68,8 +68,13 @@ function createPubSub() {
   };
   return {
     notify: (id, message) => service().sendToGroup(group(id), message),
+    /* Clients connect with the json.webpubsub.azure.v1 subprotocol and join each share-<id> group
+       themselves; the token only allows joining the groups of the requested links. */
     async clientUrl(ids) {
-      const token = await service().getClientAccessToken({ groups: ids.map(group), expirationTimeInMinutes: 120 });
+      const token = await service().getClientAccessToken({
+        roles: ids.map((id) => `webpubsub.joinLeaveGroup.${group(id)}`),
+        expirationTimeInMinutes: 120,
+      });
       return token.url;
     },
   };
