@@ -26,9 +26,11 @@ other static host. The live site is published by GitHub Pages from the root of t
   list Pokémon released as Shadow Pokémon, and Lucky leaves out Mythical Pokémon that cannot be
   traded.
 - **Filters** – search by name or number, filter by generation, caught/missing, or regular forms
-  vs. costumes. Tick *Include evolution line* to also show the rest of a searched Pokémon's
-  evolution family (e.g. "pikachu" also shows Pichu and Raichu). Pokémon not yet released in
-  Pokémon GO are hidden unless *Include unreleased* is checked.
+  vs. costumes. *Include evolution line* is on by default: every evolution is listed, and a search
+  also shows the rest of the searched Pokémon's evolution family (e.g. "pikachu" also shows Pichu
+  and Raichu). Untick it to list only the first stage of each family (e.g. Bulbasaur but not
+  Ivysaur or Venusaur). Pokémon not yet released in Pokémon GO are hidden unless
+  *Include unreleased* is checked.
 
 ### Sharing with friends by link
 

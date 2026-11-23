@@ -66,20 +66,20 @@
   </section>
 
   <section class="toolbar" aria-label="Filters">
-    <input type="search" id="search" placeholder="Search name or #number" aria-label="Search Pokémon">
-    <label class="check"><input type="checkbox" id="evolution-filter"> Include evolution line</label>
-    <select id="gen-filter" aria-label="Generation"><option value="">All generations</option></select>
-    <select id="status-filter" aria-label="Caught status">
+    <input type="search" id="search" autocomplete="off" placeholder="Search name or #number" aria-label="Search Pokémon">
+    <label class="check"><input type="checkbox" id="evolution-filter" autocomplete="off" checked> Include evolution line</label>
+    <select id="gen-filter" autocomplete="off" aria-label="Generation"><option value="">All generations</option></select>
+    <select id="status-filter" autocomplete="off" aria-label="Caught status">
       <option value="">Caught &amp; missing</option>
       <option value="caught">Caught only</option>
       <option value="missing">Missing only</option>
     </select>
-    <select id="kind-filter" aria-label="Costumes">
+    <select id="kind-filter" autocomplete="off" aria-label="Costumes">
       <option value="">Regular &amp; costumes</option>
       <option value="regular">Regular forms only</option>
       <option value="costume">Costumes only</option>
     </select>
-    <label class="check"><input type="checkbox" id="unreleased-filter"> Include unreleased</label>
+    <label class="check"><input type="checkbox" id="unreleased-filter" autocomplete="off"> Include unreleased</label>
   </section>
 
   <section id="welcome" class="welcome" hidden>
