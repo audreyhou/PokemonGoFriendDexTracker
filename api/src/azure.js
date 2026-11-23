@@ -1,6 +1,10 @@
 'use strict';
-/* Azure Table Storage and Web PubSub implementations of the stores used by shares.js. */
+/* Azure Table Storage and Web PubSub implementations of the stores used by shares.js.
+   In Azure the Function App signs in with its managed identity (STORAGE_ACCOUNT_NAME and
+   WEBPUBSUB_ENDPOINT), so no account keys are stored anywhere. The *_CONNECTION_STRING settings
+   are only a fallback for local development. */
 const { TableClient } = require('@azure/data-tables');
+const { DefaultAzureCredential } = require('@azure/identity');
 const { WebPubSubServiceClient } = require('@azure/web-pubsub');
 const { HttpError } = require('./shares');
 
@@ -13,6 +17,12 @@ function setting(name) {
   return value;
 }
 
+let credential = null;
+const identity = () => {
+  if (!credential) credential = new DefaultAzureCredential();
+  return credential;
+};
+
 // The Table service error code is in err.details / the parsed response body, not on err.code.
 function tableErrorCode(err) {
   const response = err.response || {};
@@ -23,7 +33,11 @@ function tableErrorCode(err) {
 }
 
 function createTableStore() {
-  const table = TableClient.fromConnectionString(setting('STORAGE_CONNECTION_STRING'), process.env.TABLE_NAME || 'trainers');
+  const tableName = process.env.TABLE_NAME || 'trainers';
+  const account = process.env.STORAGE_ACCOUNT_NAME;
+  const table = account
+    ? new TableClient(`https://${account}.table.core.windows.net`, tableName, identity())
+    : TableClient.fromConnectionString(setting('STORAGE_CONNECTION_STRING'), tableName);
   const toEntity = (id, record) => ({ partitionKey: id, rowKey: ROW, ...record });
   return {
     async get(id) {
@@ -63,7 +77,12 @@ function createTableStore() {
 function createPubSub() {
   let client = null;
   const service = () => {
-    if (!client) client = new WebPubSubServiceClient(setting('WEBPUBSUB_CONNECTION_STRING'), process.env.PUBSUB_HUB || 'dex');
+    if (client) return client;
+    const hub = process.env.PUBSUB_HUB || 'dex';
+    const endpoint = process.env.WEBPUBSUB_ENDPOINT;
+    client = endpoint
+      ? new WebPubSubServiceClient(endpoint, identity(), hub)
+      : new WebPubSubServiceClient(setting('WEBPUBSUB_CONNECTION_STRING'), hub);
     return client;
   };
   return {
