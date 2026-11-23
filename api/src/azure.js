@@ -13,6 +13,15 @@ function setting(name) {
   return value;
 }
 
+// The Table service error code is in the parsed response body (or a header), not on err.code.
+function tableErrorCode(err) {
+  const response = err.response || {};
+  const odataError = response.parsedBody && response.parsedBody.odataError;
+  if (odataError && odataError.code) return odataError.code;
+  const header = response.headers && typeof response.headers.get === 'function' ? response.headers.get('x-ms-error-code') : '';
+  return err.code || header || '';
+}
+
 function createTableStore() {
   const table = TableClient.fromConnectionString(setting('STORAGE_CONNECTION_STRING'), process.env.TABLE_NAME || 'trainers');
   const toEntity = (id, record) => ({ partitionKey: id, rowKey: ROW, ...record });
@@ -28,7 +37,7 @@ function createTableStore() {
         };
       } catch (err) {
         // A missing table (TableNotFound) is a server problem, not a turned-off link.
-        if (err.statusCode === 404 && err.code === 'ResourceNotFound') return null;
+        if (err.statusCode === 404 && tableErrorCode(err) !== 'TableNotFound') return null;
         throw err;
       }
     },
