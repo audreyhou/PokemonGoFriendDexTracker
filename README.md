@@ -32,11 +32,10 @@ other static host. The live site is published by GitHub Pages from the root of t
   is replaced by a priority filter (any priority, P0, P1, P2 or not wanted). The wishlist is
   included in share links and exported files, so friends can see what you are looking for.
 - **Filters** – search by name or number, filter by generation, caught/missing, or regular forms
-  vs. costumes. *Include evolution line* is on by default: every evolution is listed, and a search
-  also shows the rest of the searched Pokémon's evolution family (e.g. "pikachu" also shows Pichu
-  and Raichu). Untick it to list only the first stage of each family (e.g. Bulbasaur but not
-  Ivysaur or Venusaur). Pokémon not yet released in Pokémon GO are hidden unless
-  *Include unreleased* is checked.
+  vs. costumes. *Include evolution line* (on by default) only changes search results: a search also
+  shows the rest of the searched Pokémon's evolution family (e.g. "pikachu" also shows Pichu and
+  Raichu); untick it to see only the Pokémon whose name or number matches. Pokémon not yet released
+  in Pokémon GO are hidden unless *Include unreleased* is checked.
 
 ### Sharing with friends by link
 

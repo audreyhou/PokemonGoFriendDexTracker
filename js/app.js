@@ -77,9 +77,6 @@
       family.forEach((relative) => relativesByDex.get(dex).add(relative));
     });
   });
-  // Dex numbers that evolve from something (any stage after the first), e.g. Ivysaur or Pikachu.
-  const evolvedDexes = new Set();
-  DATA.families.forEach((family) => family.slice(1).forEach((dex) => evolvedDexes.add(dex)));
 
   let state = Store.load();
   const filters = {}; // filled from the toolbar controls by readFilters()
@@ -167,16 +164,14 @@
     const eligible = TABS[tab].eligible;
     if (eligible && !eligible(e)) return false;
     if (!filters.unreleased && e.unreleased) return false;
-    if (!filters.evolution && evolvedDexes.has(e.dex)) return false;
     if (filters.kind === 'regular' && e.costume) return false;
     if (filters.kind === 'costume' && !e.costume) return false;
     return true;
   }
 
-  /* With "Include evolution line" (on by default), a search for a Pokémon also shows every member
-     of its evolution family; with it off, only first-stage Pokémon are listed at all (see inPool).
-     Costume names are ignored here so "Pikachu" does not pull in the
-     Bulbasaur line just because of Bulbasaur's Pikachu visor costume. */
+  /* "Include evolution line" (on by default) only affects searches: a search for a Pokémon also
+     shows every member of its evolution family. Costume names are ignored here so "Pikachu" does
+     not pull in the Bulbasaur line just because of Bulbasaur's Pikachu visor costume. */
   function evolutionLineDexes() {
     if (!filters.search || !filters.evolution) return null;
     const dexes = new Set();
