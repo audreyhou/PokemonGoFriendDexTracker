@@ -1,0 +1,62 @@
+name: Deploy API
+
+# Deploys api/ to the Azure Function App when it changes on main. Signs in to Azure with
+# OpenID Connect, so no Azure password or key is stored in GitHub. See "Share link server" in README.md.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: rg-friend-dex
+  FUNCTION_APP: friend-dex-api-52212
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: Test and package
+        working-directory: api
+        run: |
+          npm ci
+          npm test
+          npm prune --omit=dev
+          zip -qr ../api.zip . -x "test/*"
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure Functions
+        run: az functionapp deployment source config-zip -g "$RESOURCE_GROUP" -n "$FUNCTION_APP" --src api.zip
+
+      - name: Check the API answers
+        run: |
+          for attempt in $(seq 1 12); do
+            status=$(curl -s -o /dev/null -w "%{http_code}" "https://$FUNCTION_APP.azurewebsites.net/api/shares/AAAAAAAAAAAA")
+            echo "Attempt $attempt: GET unknown share -> $status"
+            [ "$status" = "404" ] && exit 0
+            sleep 10
+          done
+          exit 1

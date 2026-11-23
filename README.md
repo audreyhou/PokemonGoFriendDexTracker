@@ -147,7 +147,14 @@ Only a SHA-256 hash of each owner key is stored. The Function App needs these ap
 `STORAGE_CONNECTION_STRING`, `WEBPUBSUB_CONNECTION_STRING`, `TABLE_NAME` (`trainers`) and
 `PUBSUB_HUB` (`dex`), plus CORS for `https://audreyhou.github.io`.
 
-To deploy the API from [Azure Cloud Shell](https://shell.azure.com):
+GitHub Actions deploys the API automatically (`.github/workflows/deploy-api.yml`) whenever `api/`
+changes on `main`, after running its tests; `.github/workflows/ci.yml` runs all tests on pull
+requests. The deploy signs in to Azure with OpenID Connect, using the repository variables
+`AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` of an app registration that has a
+federated credential for `repo:audreyhou/PokemonGoFriendDexTracker:ref:refs/heads/main` and the
+Contributor role on the Function App. It can also be started by hand from the Actions tab.
+
+To deploy the API by hand from [Azure Cloud Shell](https://shell.azure.com):
 
 ```sh
 git clone https://github.com/audreyhou/PokemonGoFriendDexTracker.git
