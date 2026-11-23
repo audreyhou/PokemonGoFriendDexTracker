@@ -2,8 +2,9 @@
 
 A no-login web app for tracking Pokémon GO collections for yourself and your friends. Every trainer
 gets eight Pokédex pages — **Original, Shiny, Lucky, XXL, XXS, Shadow, Purified and 100%** — covering
-every Pokémon, regional form and costume Pokémon. Progress is shared with a live link that keeps
-friends up to date, or by sending a file, similar to [Leek Duck's Shiny Checklist](https://leekduck.com/shiny/).
+every Pokémon, regional form and costume Pokémon, plus a **Trade Wishlist** with P0/P1/P2
+priorities. Progress is shared with a live link that keeps friends up to date, or by sending a
+file, similar to [Leek Duck's Shiny Checklist](https://leekduck.com/shiny/).
 
 ## Using it
 
@@ -13,18 +14,23 @@ You can also open `index.html` in a browser (double-clicking it works) or host t
 other static host. The live site is published by GitHub Pages from the root of the `main` branch.
 
 - **Trainers** – choose **+ New** and enter a username. Switch between trainers with the
-  *Trainer* dropdown; each trainer has a separate set of all eight Pokédexes. There is no account
-  or login — everything is saved in the browser's local storage. The dropdown lists your own
-  trainers under **My trainers** and friends' trainers under **Friends**, and the line under the
-  progress bar says *Your trainer* or *Friend*.
+  *Trainer* dropdown; each trainer has a separate set of all eight Pokédexes and their own
+  wishlist. There is no account or login — everything is saved in the browser's local storage.
+  The dropdown lists your own trainers under **My trainers** and friends' trainers under
+  **Friends**, and the line under the progress bar says *Your trainer* or *Friend*.
 - **Checking off Pokémon** – click (or tap) a Pokémon image to mark it as owned in the current tab.
   Missing Pokémon are greyed out. To mark many at once, click one Pokémon and then
   <kbd>Shift</kbd>+click another: every Pokémon shown between them gets the same checked or
   unchecked state as the first one.
 - **Tabs** – each Pokédex is its own page (`#original`, `#shiny`, `#lucky`, `#xxl`, `#xxs`,
-  `#shadow`, `#purified`, `#perfect`). The Shiny tab shows shiny artwork. Shadow and Purified only
-  list Pokémon released as Shadow Pokémon, and Lucky leaves out Mythical Pokémon that cannot be
-  traded.
+  `#shadow`, `#purified`, `#perfect`, `#wishlist`). The Shiny tab shows shiny artwork. Shadow and
+  Purified only list Pokémon released as Shadow Pokémon, and Lucky and Wishlist leave out Mythical
+  Pokémon that cannot be traded.
+- **Trade Wishlist** – mark the Pokémon you want to receive in trades. Each click moves a Pokémon
+  to the next priority: not wanted → **P0** (most wanted) → **P1** → **P2** → not wanted.
+  <kbd>Shift</kbd>+click gives a range the first Pokémon's priority. On this tab the caught filter
+  is replaced by a priority filter (any priority, P0, P1, P2 or not wanted). The wishlist is
+  included in share links and exported files, so friends can see what you are looking for.
 - **Filters** – search by name or number, filter by generation, caught/missing, or regular forms
   vs. costumes. *Include evolution line* is on by default: every evolution is listed, and a search
   also shows the rest of the searched Pokémon's evolution family (e.g. "pikachu" also shows Pichu
@@ -82,7 +88,8 @@ the file, so the person importing always chooses. Only your own trainers can be 
       "username": "Ash",
       "updatedAt": "2026-11-15T22:29:41.000Z",
       "dex": { "original": ["f87", "c0025Holiday2016"], "shiny": [], "lucky": [], "xxl": [],
-               "xxs": [], "shadow": [], "purified": [], "perfect": [] }
+               "xxs": [], "shadow": [], "purified": [], "perfect": [],
+               "wishlist": { "p0": ["f13"], "p1": [], "p2": ["c0025Holiday2016"] } }
     }
   ]
 }
@@ -91,7 +98,7 @@ the file, so the person importing always chooses. Only your own trainers can be 
 Entry ids are stable: `f<id>` is a [pokemon.gameinfo.io](https://pokemon.gameinfo.io/) form id and
 `c<dex><code>` is a costume, named after its Bulbapedia image (e.g. `c0025Holiday2016` for
 `GO0025Holiday2016.png`). Unknown ids in imported files are kept, so files made with newer data
-are not damaged.
+are not damaged. Files without a `wishlist` (made before it existed) import with an empty wishlist.
 
 ## Pokédex data
 

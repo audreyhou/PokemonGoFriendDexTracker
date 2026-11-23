@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const zlib = require('node:zlib');
 
 const DEX_TYPES = ['original', 'shiny', 'lucky', 'xxl', 'xxs', 'shadow', 'purified', 'perfect'];
+const PRIORITIES = ['p0', 'p1', 'p2']; // trade wishlist priorities, most wanted first
 const MAX_NAME = 30;
 const MAX_ID_LENGTH = 64;
 const MAX_IDS_PER_TYPE = 5000;
@@ -59,17 +60,33 @@ function parseTrainer(raw) {
   const username = normalizeUsername(raw.username);
   if (!username) throw new HttpError(400, 'the trainer has no username');
   const source = raw.dex && typeof raw.dex === 'object' ? raw.dex : {};
+  const isEntryId = (id) => typeof id === 'string' && id.length > 0 && id.length <= MAX_ID_LENGTH;
   const dex = {};
   DEX_TYPES.forEach((type) => {
     const ids = new Set();
     if (Array.isArray(source[type])) {
       source[type].forEach((id) => {
-        if (typeof id === 'string' && id.length > 0 && id.length <= MAX_ID_LENGTH) ids.add(id);
+        if (isEntryId(id)) ids.add(id);
       });
     }
     if (ids.size > MAX_IDS_PER_TYPE) throw new HttpError(413, 'the Pokédex is too large');
     dex[type] = Array.from(ids).sort();
   });
+  // An id listed under several priorities keeps the highest one.
+  const wishlist = source.wishlist && typeof source.wishlist === 'object' ? source.wishlist : {};
+  const wanted = new Set();
+  dex.wishlist = {};
+  PRIORITIES.forEach((key) => {
+    const ids = new Set();
+    if (Array.isArray(wishlist[key])) {
+      wishlist[key].forEach((id) => {
+        if (isEntryId(id) && !wanted.has(id)) ids.add(id);
+      });
+    }
+    ids.forEach((id) => wanted.add(id));
+    dex.wishlist[key] = Array.from(ids).sort();
+  });
+  if (wanted.size > MAX_IDS_PER_TYPE) throw new HttpError(413, 'the Pokédex is too large');
   const updatedAt = typeof raw.updatedAt === 'string' && raw.updatedAt.length <= 40 && !isNaN(Date.parse(raw.updatedAt))
     ? raw.updatedAt
     : new Date().toISOString();

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pokémon GO Friend Dex Tracker</title>
-  <meta name="description" content="Track your Pokémon GO collection — original, shiny, lucky, XXL, XXS, shadow, purified and 100% — for multiple trainers, and share it with friends by link or file.">
+  <meta name="description" content="Track your Pokémon GO collection — original, shiny, lucky, XXL, XXS, shadow, purified and 100% — plus a prioritized trade wishlist, for multiple trainers, and share it with friends by link or file.">
   <link rel="stylesheet" href="css/styles.css">
   <script defer src="data/dex.js"></script>
   <script defer src="js/config.js"></script>
@@ -47,6 +47,7 @@
     <a href="#shadow" data-tab="shadow">Shadow</a>
     <a href="#purified" data-tab="purified">Purified</a>
     <a href="#perfect" data-tab="perfect">100%</a>
+    <a href="#wishlist" data-tab="wishlist">Wishlist</a>
   </nav>
 
   <section class="summary">
@@ -73,6 +74,14 @@
       <option value="">Caught &amp; missing</option>
       <option value="caught">Caught only</option>
       <option value="missing">Missing only</option>
+    </select>
+    <select id="priority-filter" autocomplete="off" aria-label="Trade priority" hidden>
+      <option value="">Wanted &amp; not wanted</option>
+      <option value="any">Wanted (any priority)</option>
+      <option value="0">P0 only</option>
+      <option value="1">P1 only</option>
+      <option value="2">P2 only</option>
+      <option value="none">Not wanted</option>
     </select>
     <select id="kind-filter" autocomplete="off" aria-label="Costumes">
       <option value="">Regular &amp; costumes</option>

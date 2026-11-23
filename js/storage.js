@@ -6,9 +6,12 @@
   const FILE_APP = 'pokemon-go-friend-dex';
   const FILE_VERSION = 1;
   const DEX_TYPES = ['original', 'shiny', 'lucky', 'xxl', 'xxs', 'shadow', 'purified', 'perfect'];
+  const PRIORITIES = ['p0', 'p1', 'p2']; // trade wishlist priorities, most wanted first
   const MAX_NAME = 30;
   const SHARE_ID = /^[A-Za-z0-9_-]{12}$/;
   const OWNER_KEY = /^[A-Za-z0-9_-]{20,200}$/;
+
+  const isEntryId = (id) => typeof id === 'string' && id.length > 0 && id.length <= 64;
 
   function normalizeUsername(name) {
     return typeof name === 'string' ? name.replace(/\s+/g, ' ').trim().slice(0, MAX_NAME) : '';
@@ -21,6 +24,7 @@
   function emptyDex() {
     const dex = {};
     DEX_TYPES.forEach((type) => { dex[type] = new Set(); });
+    dex.wishlist = new Map(); // entry id -> index into PRIORITIES
     return dex;
   }
 
@@ -50,7 +54,15 @@
     DEX_TYPES.forEach((type) => {
       if (!Array.isArray(source[type])) return;
       source[type].forEach((id) => {
-        if (typeof id === 'string' && id.length > 0 && id.length <= 64) dex[type].add(id);
+        if (isEntryId(id)) dex[type].add(id);
+      });
+    });
+    // An id listed under several priorities keeps the highest one.
+    const wishlist = source.wishlist && typeof source.wishlist === 'object' ? source.wishlist : {};
+    PRIORITIES.forEach((key, priority) => {
+      if (!Array.isArray(wishlist[key])) return;
+      wishlist[key].forEach((id) => {
+        if (isEntryId(id) && !dex.wishlist.has(id)) dex.wishlist.set(id, priority);
       });
     });
     const updated = typeof raw.updatedAt === 'string' && !isNaN(Date.parse(raw.updatedAt)) ? raw.updatedAt : new Date().toISOString();
@@ -66,6 +78,10 @@
   function serializeUser(user, local) {
     const dex = {};
     DEX_TYPES.forEach((type) => { dex[type] = Array.from(user.dex[type]).sort(); });
+    dex.wishlist = {};
+    PRIORITIES.forEach((key, priority) => {
+      dex.wishlist[key] = Array.from(user.dex.wishlist).filter(([, p]) => p === priority).map(([id]) => id).sort();
+    });
     const data = { username: user.username, updatedAt: user.updatedAt, dex };
     if (local) {
       data.kind = user.kind === 'friend' ? 'friend' : 'mine';
@@ -126,7 +142,7 @@
   }
 
   window.DexStore = {
-    STORAGE_KEY, DEX_TYPES, MAX_NAME, SHARE_ID, OWNER_KEY,
+    STORAGE_KEY, DEX_TYPES, PRIORITIES, MAX_NAME, SHARE_ID, OWNER_KEY,
     normalizeUsername, userKey, createUser, toUser, serializeUser, load, save, toFileText, parseFileText,
   };
 })();

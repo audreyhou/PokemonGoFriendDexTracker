@@ -28,7 +28,15 @@
       eligible: (e) => !!e.shadow,
     },
     perfect: { title: '100% Pokédex', blurb: 'Pokémon you own with perfect 15/15/15 IVs.' },
+    wishlist: {
+      title: 'Trade Wishlist',
+      blurb: 'Pokémon you want to receive in trades. Click a Pokémon to mark it P0 (most wanted), '
+        + 'click again for P1, then P2, and once more to clear it. Mythical Pokémon that cannot be traded are not listed.',
+      eligible: (e) => !e.noTrade,
+      priorities: true, // marks are a Map of entry id -> priority instead of a Set
+    },
   };
+  const PRIORITY_COUNT = Store.PRIORITIES.length;
 
   const $ = (id) => document.getElementById(id);
   const els = {
@@ -36,7 +44,8 @@
     shareUser: $('share-user'), exportUser: $('export-user'), exportAll: $('export-all'), importButton: $('import-button'), importFile: $('import-file'),
     title: $('dex-title'), blurb: $('dex-blurb'), progressCount: $('progress-count'), progressPct: $('progress-pct'),
     progressBar: $('progress-bar'), userUpdated: $('user-updated'), liveStatus: $('live-status'),
-    search: $('search'), evolutionFilter: $('evolution-filter'), genFilter: $('gen-filter'), statusFilter: $('status-filter'), kindFilter: $('kind-filter'),
+    search: $('search'), evolutionFilter: $('evolution-filter'), genFilter: $('gen-filter'), statusFilter: $('status-filter'),
+    priorityFilter: $('priority-filter'), kindFilter: $('kind-filter'),
     unreleasedFilter: $('unreleased-filter'), welcome: $('welcome'), dex: $('dex'), dataDate: $('data-date'),
     dropOverlay: $('drop-overlay'), toast: $('toast'),
     importDialog: $('import-dialog'), importForm: $('import-form'), importList: $('import-list'),
@@ -178,21 +187,29 @@
     return dexes;
   }
 
-  function isVisible(e, caught, lineDexes) {
+  function isVisible(e, caught, lineDexes, priorities) {
     if (filters.gen !== '' && e.gen !== Number(filters.gen)) return false;
-    if (filters.status === 'caught' && !caught.has(e.id)) return false;
-    if (filters.status === 'missing' && caught.has(e.id)) return false;
+    if (priorities) {
+      if (filters.priority === 'any' && !caught.has(e.id)) return false;
+      if (filters.priority === 'none' && caught.has(e.id)) return false;
+      if (/^\d$/.test(filters.priority) && caught.get(e.id) !== Number(filters.priority)) return false;
+    } else {
+      if (filters.status === 'caught' && !caught.has(e.id)) return false;
+      if (filters.status === 'missing' && caught.has(e.id)) return false;
+    }
     return !filters.search || e.key.includes(filters.search) || (!!lineDexes && lineDexes.has(e.dex));
   }
 
-  function cardHtml(e, isCaught, shiny) {
+  // `priority` is only given on the wishlist: undefined there means "not wanted".
+  function cardHtml(e, isCaught, shiny, priority) {
     const sources = imageSources(e, shiny);
     const label = `#${pad(e.dex)} ${e.name}`;
     const details = [label];
     if (e.note) details.push(e.note);
     if (e.evoOnly) details.push('Obtained by evolving a costume Pokémon');
     if (e.unreleased) details.push('Not yet released in Pokémon GO');
-    return `<button type="button" class="mon${isCaught ? ' caught' : ''}${e.costume ? ' costume' : ''}" data-id="${escapeHtml(e.id)}" aria-pressed="${isCaught}" title="${escapeHtml(details.join('\n'))}">`
+    const priorityAttr = priority === undefined ? '' : ` data-p="${priority}"`;
+    return `<button type="button" class="mon${isCaught ? ' caught' : ''}${e.costume ? ' costume' : ''}" data-id="${escapeHtml(e.id)}"${priorityAttr} aria-pressed="${isCaught}" title="${escapeHtml(details.join('\n'))}">`
       + `<img class="mon-img" src="${escapeHtml(sources[0])}" data-srcs="${escapeHtml(sources.join(' '))}" data-i="0" alt="" width="80" height="80" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
       + `<span class="mon-num">#${pad(e.dex)}</span><span class="mon-name">${escapeHtml(e.name)}</span></button>`;
   }
@@ -201,7 +218,7 @@
     const tab = currentTab();
     const config = TABS[tab];
     const user = activeUser();
-    const caught = user ? user.dex[tab] : new Set();
+    const caught = user ? user.dex[tab] : new Map();
 
     document.body.dataset.tab = tab;
     document.title = `${config.title} · Friend Dex Tracker`;
@@ -212,6 +229,8 @@
     els.title.textContent = user ? `${user.username}'s ${config.title}` : config.title;
     els.blurb.textContent = config.blurb;
     els.welcome.hidden = !!user;
+    els.statusFilter.hidden = !!config.priorities;
+    els.priorityFilter.hidden = !config.priorities;
 
     genCounts = gens.map(() => ({ caught: 0, total: 0 }));
     rangeAnchorId = null;
@@ -223,13 +242,13 @@
       const has = caught.has(e.id);
       genCounts[e.gen].total += 1;
       if (has) genCounts[e.gen].caught += 1;
-      if (!isVisible(e, caught, lineDexes)) return;
+      if (!isVisible(e, caught, lineDexes, !!config.priorities)) return;
       if (e.gen !== openGen) {
         if (openGen >= 0) html.push('</div></section>');
         openGen = e.gen;
         html.push(`<section class="gen"><h3>Gen ${e.gen + 1} · ${escapeHtml(gens[e.gen][1])} <span class="gen-count" data-gen="${e.gen}"></span></h3><div class="grid">`);
       }
-      html.push(cardHtml(e, has, !!config.shiny));
+      html.push(cardHtml(e, has, !!config.shiny, config.priorities ? caught.get(e.id) : undefined));
     });
     if (openGen >= 0) html.push('</div></section>');
     els.dex.innerHTML = html.length ? html.join('') : '<p class="empty">No Pokémon match these filters.</p>';
@@ -237,18 +256,34 @@
   }
 
   function updateProgress() {
+    const tab = currentTab();
+    const user = activeUser();
+    const wishlist = !!TABS[tab].priorities;
     const total = genCounts.reduce((sum, g) => sum + g.total, 0);
     const caught = genCounts.reduce((sum, g) => sum + g.caught, 0);
     const pct = total ? Math.floor((caught / total) * 1000) / 10 : 0;
-    els.progressCount.textContent = `${caught.toLocaleString()} / ${total.toLocaleString()}`;
-    els.progressPct.textContent = `${pct}%`;
+    if (wishlist) {
+      // A wishlist is not something to complete, so count what is wanted at each priority instead.
+      const perPriority = Store.PRIORITIES.map(() => 0);
+      if (user) {
+        user.dex[tab].forEach((priority, id) => {
+          const e = byId.get(id);
+          if (e && inPool(e, tab)) perPriority[priority] += 1;
+        });
+      }
+      els.progressCount.textContent = `${caught.toLocaleString()} wanted`;
+      els.progressPct.textContent = perPriority.map((n, p) => `P${p}: ${n.toLocaleString()}`).join(' · ');
+    } else {
+      els.progressCount.textContent = `${caught.toLocaleString()} / ${total.toLocaleString()}`;
+      els.progressPct.textContent = `${pct}%`;
+    }
+    els.progressBar.parentElement.hidden = wishlist;
     els.progressBar.style.width = `${pct}%`;
     els.progressBar.parentElement.setAttribute('aria-valuenow', String(pct));
     els.dex.querySelectorAll('.gen-count').forEach((span) => {
       const counts = genCounts[Number(span.dataset.gen)];
-      span.textContent = `${counts.caught} / ${counts.total}`;
+      span.textContent = wishlist ? `${counts.caught} wanted` : `${counts.caught} / ${counts.total}`;
     });
-    const user = activeUser();
     els.userUpdated.textContent = user
       ? `${kindOf(user) === 'mine' ? 'Your trainer' : 'Friend'} · last updated ${formatDate(user.updatedAt)}`
       : '';
@@ -839,14 +874,31 @@
 
   // ------------------------------------------------------------------ events
 
-  function setCaught(set, button, caught) {
+  /* A card's mark is true/false on the collection tabs, and a priority (0 = P0) or null on the
+     wishlist, whose marks are a Map of entry id -> priority. */
+  const markOf = (marks, id) => (marks instanceof Map ? (marks.has(id) ? marks.get(id) : null) : marks.has(id));
+
+  function setMark(marks, button, mark) {
     const id = button.dataset.id;
-    if (set.has(id) === caught) return;
-    if (caught) set.add(id);
-    else set.delete(id);
-    button.classList.toggle('caught', caught);
-    button.setAttribute('aria-pressed', String(caught));
-    genCounts[byId.get(id).gen].caught += caught ? 1 : -1;
+    if (markOf(marks, id) === mark) return;
+    const wasMarked = marks.has(id);
+    const marked = mark !== false && mark !== null;
+    if (!marked) marks.delete(id);
+    else if (marks instanceof Map) marks.set(id, mark);
+    else marks.add(id);
+    if (marks instanceof Map && marked) button.dataset.p = String(mark);
+    else delete button.dataset.p;
+    button.classList.toggle('caught', marked);
+    button.setAttribute('aria-pressed', String(marked));
+    if (marked !== wasMarked) genCounts[byId.get(id).gen].caught += marked ? 1 : -1;
+  }
+
+  // Wishlist: not wanted -> P0 -> P1 -> P2 -> not wanted. Other tabs: checked <-> unchecked.
+  function nextMark(marks, id) {
+    const mark = markOf(marks, id);
+    if (!(marks instanceof Map)) return !mark;
+    if (mark === null) return 0;
+    return mark + 1 < PRIORITY_COUNT ? mark + 1 : null;
   }
 
   // Shift+click would otherwise also select the page text between the two clicks.
@@ -854,9 +906,9 @@
     if (event.shiftKey && event.target.closest('button.mon')) event.preventDefault();
   });
 
-  /* Click toggles one Pokémon. Shift+click gives every card shown between the previously
-     clicked card and this one the same state as the previously clicked card, so a range can be
-     checked or unchecked in one go. */
+  /* Click toggles one Pokémon (or moves it to the next priority on the wishlist). Shift+click
+     gives every card shown between the previously clicked card and this one the same mark as the
+     previously clicked card, so a range can be checked, unchecked or prioritized in one go. */
   els.dex.addEventListener('click', (event) => {
     const button = event.target.closest('button.mon');
     if (!button) return;
@@ -869,19 +921,21 @@
       toast(`${user.username}'s Pokédex comes from their share link, so only ${user.username} can change it.`);
       return;
     }
-    const set = user.dex[currentTab()];
+    const marks = user.dex[currentTab()];
     const anchor = event.shiftKey && rangeAnchorId && rangeAnchorId !== button.dataset.id
       ? els.dex.querySelector(`button.mon[data-id="${CSS.escape(rangeAnchorId)}"]`)
       : null;
     if (anchor) {
       const buttons = Array.from(els.dex.querySelectorAll('button.mon'));
       const [from, to] = [buttons.indexOf(anchor), buttons.indexOf(button)].sort((a, b) => a - b);
-      const caught = set.has(rangeAnchorId);
+      const mark = markOf(marks, rangeAnchorId);
       const range = buttons.slice(from, to + 1);
-      range.forEach((b) => setCaught(set, b, caught));
-      toast(`${caught ? 'Checked' : 'Unchecked'} ${range.length} Pokémon.`);
+      range.forEach((b) => setMark(marks, b, mark));
+      const count = `${range.length} Pokémon`;
+      if (typeof mark === 'number') toast(`Marked ${count} as P${mark}.`);
+      else toast(`${mark === null ? 'Cleared' : mark ? 'Checked' : 'Unchecked'} ${count}.`);
     } else {
-      setCaught(set, button, !set.has(button.dataset.id));
+      setMark(marks, button, nextMark(marks, button.dataset.id));
     }
     rangeAnchorId = button.dataset.id;
     user.updatedAt = new Date().toISOString();
@@ -942,6 +996,7 @@
     filters.evolution = els.evolutionFilter.checked;
     filters.gen = els.genFilter.value;
     filters.status = els.statusFilter.value;
+    filters.priority = els.priorityFilter.value;
     filters.kind = els.kindFilter.value;
     filters.unreleased = els.unreleasedFilter.checked;
   }
@@ -952,7 +1007,7 @@
     clearTimeout(searchTimer);
     searchTimer = setTimeout(applyFilters, 150);
   });
-  [els.evolutionFilter, els.genFilter, els.statusFilter, els.kindFilter, els.unreleasedFilter]
+  [els.evolutionFilter, els.genFilter, els.statusFilter, els.priorityFilter, els.kindFilter, els.unreleasedFilter]
     .forEach((control) => control.addEventListener('change', applyFilters));
   window.addEventListener('hashchange', () => { if (!openLinkFromHash()) render(); });
 
