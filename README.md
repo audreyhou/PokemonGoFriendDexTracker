@@ -153,9 +153,16 @@ hide share links. Without Web PubSub, trackers fall back to checking for changes
 | `POST /api/shares/{id}/verify` | Check an owner key from a sync link. |
 | `GET /api/negotiate?ids=a,b` | WebSocket URL that receives `{ type, id }` messages for those links. |
 
-Only a SHA-256 hash of each owner key is stored. The Function App needs these app settings:
-`STORAGE_CONNECTION_STRING`, `WEBPUBSUB_CONNECTION_STRING`, `TABLE_NAME` (`trainers`) and
-`PUBSUB_HUB` (`dex`), plus CORS for `https://audreyhou.github.io`.
+Only a SHA-256 hash of each owner key is stored. The Function App signs in to Storage and Web
+PubSub with its managed identity (roles *Storage Table Data Contributor* on the `trainers` table and
+*Web PubSub Service Owner*), so no account keys are kept in its settings. It needs these app
+settings: `STORAGE_ACCOUNT_NAME`, `WEBPUBSUB_ENDPOINT`, `TABLE_NAME` (`trainers`) and `PUBSUB_HUB`
+(`dex`), plus CORS for `https://audreyhou.github.io`. For local development,
+`STORAGE_CONNECTION_STRING` and `WEBPUBSUB_CONNECTION_STRING` can be used instead.
+
+Each client IP may create 10 links an hour, make 60 changes a minute and 300 reads a minute (per
+Function App instance); beyond that the API answers 429. The site's Content Security Policy only
+allows its own scripts and connections to this API and Web PubSub.
 
 GitHub Actions deploys the API automatically (`.github/workflows/deploy-api.yml`) whenever `api/`
 changes on `main`, after running its tests; `.github/workflows/ci.yml` runs all tests on pull
