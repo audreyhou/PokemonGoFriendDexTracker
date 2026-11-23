@@ -25,7 +25,7 @@
   }
 
   function createUser(username) {
-    return { username: normalizeUsername(username), updatedAt: new Date().toISOString(), dex: emptyDex() };
+    return { username: normalizeUsername(username), updatedAt: new Date().toISOString(), dex: emptyDex(), kind: 'mine' };
   }
 
   /* Live share link of a trainer. The owner (the browser that created the link, or one synced
@@ -38,9 +38,10 @@
   }
 
   /* Validates untrusted data (localStorage, an imported file or a share link). Unknown entry ids
-     are kept so a file made with newer Pokédex data does not lose progress. Share details are
-     only read from this browser's own storage, never from files. */
-  function toUser(raw, withShare) {
+     are kept so a file made with newer Pokédex data does not lose progress. Share details and
+     whether the trainer is yours or a friend's ("kind") are only read from this browser's own
+     storage (local = true), never from files, because a file you export is imported by friends. */
+  function toUser(raw, local) {
     if (!raw || typeof raw !== 'object') return null;
     const username = normalizeUsername(raw.username);
     if (!username) return null;
@@ -54,16 +55,22 @@
     });
     const updated = typeof raw.updatedAt === 'string' && !isNaN(Date.parse(raw.updatedAt)) ? raw.updatedAt : new Date().toISOString();
     const user = { username, updatedAt: updated, dex };
-    const share = withShare ? toShare(raw.share) : null;
+    if (!local) return user;
+    const share = toShare(raw.share);
     if (share) user.share = share;
+    // Trainers saved before kinds existed count as yours.
+    user.kind = (share && share.role === 'follower') || raw.kind === 'friend' ? 'friend' : 'mine';
     return user;
   }
 
-  function serializeUser(user, withShare) {
+  function serializeUser(user, local) {
     const dex = {};
     DEX_TYPES.forEach((type) => { dex[type] = Array.from(user.dex[type]).sort(); });
     const data = { username: user.username, updatedAt: user.updatedAt, dex };
-    if (withShare && user.share) data.share = Object.assign({}, user.share);
+    if (local) {
+      data.kind = user.kind === 'friend' ? 'friend' : 'mine';
+      if (user.share) data.share = Object.assign({}, user.share);
+    }
     return data;
   }
 

@@ -39,6 +39,7 @@
     search: $('search'), evolutionFilter: $('evolution-filter'), genFilter: $('gen-filter'), statusFilter: $('status-filter'), kindFilter: $('kind-filter'),
     unreleasedFilter: $('unreleased-filter'), welcome: $('welcome'), dex: $('dex'), dataDate: $('data-date'),
     dropOverlay: $('drop-overlay'), toast: $('toast'),
+    importDialog: $('import-dialog'), importForm: $('import-form'), importList: $('import-list'),
     nameDialog: $('name-dialog'), nameForm: $('name-form'), nameTitle: $('name-title'), nameInput: $('name-input'), nameError: $('name-error'),
     shareDialog: $('share-dialog'), shareTitle: $('share-title'), shareIntro: $('share-intro'), shareLinks: $('share-links'),
     shareLink: $('share-link'), shareNative: $('share-native'), syncBlock: $('sync-block'), syncLink: $('sync-link'),
@@ -104,6 +105,8 @@
   // Owners created the share link in this browser (or synced it here); followers opened a friend's link.
   const isOwner = (user) => !!(user && user.share && user.share.role === 'owner');
   const isFollower = (user) => !!(user && user.share && user.share.role === 'follower');
+  // 'mine' for your own trainers (and backups of them), 'friend' for friends' trainers.
+  const kindOf = (user) => (isFollower(user) || (user && user.kind === 'friend') ? 'friend' : 'mine');
 
   function toast(message, isError) {
     els.toast.textContent = message;
@@ -241,7 +244,9 @@
       span.textContent = `${counts.caught} / ${counts.total}`;
     });
     const user = activeUser();
-    els.userUpdated.textContent = user ? `${user.username} · last updated ${formatDate(user.updatedAt)}` : '';
+    els.userUpdated.textContent = user
+      ? `${kindOf(user) === 'mine' ? 'Your trainer' : 'Friend'} · last updated ${formatDate(user.updatedAt)}`
+      : '';
     updateLiveStatus();
   }
 
@@ -249,10 +254,15 @@
     const users = Array.from(state.users.entries()).sort((a, b) => a[1].username.localeCompare(b[1].username));
     els.userSelect.innerHTML = '';
     if (!users.length) els.userSelect.add(new Option('No trainers yet', ''));
-    const option = ([key, user]) => new Option(isOwner(user) ? `${user.username} · shared` : user.username, key);
-    const friends = users.filter(([, user]) => isFollower(user));
+    const option = ([key, user]) => {
+      let label = user.username;
+      if (isOwner(user)) label += ' · shared';
+      else if (isFollower(user)) label += ' · live link';
+      return new Option(label, key);
+    };
+    const friends = users.filter(([, user]) => kindOf(user) === 'friend');
     if (friends.length) {
-      [['Your trainers', users.filter(([, user]) => !isFollower(user))], ['Friends (from share links)', friends]].forEach(([label, list]) => {
+      [['My trainers', users.filter(([, user]) => kindOf(user) === 'mine')], ['Friends', friends]].forEach(([label, list]) => {
         if (!list.length) return;
         const group = document.createElement('optgroup');
         group.label = label;
@@ -401,12 +411,37 @@
     toast(`Exported ${users.length} trainers.`);
   }
 
+  /* Asks whether each imported trainer is the user's own (a backup) or a friend's. Resolves with
+     one kind per trainer, or null when cancelled. */
+  function askImportKinds(found) {
+    return new Promise((resolve) => {
+      const dialog = els.importDialog;
+      els.importList.innerHTML = found.map(({ user }, i) => {
+        const existing = state.users.get(Store.userKey(user.username));
+        const preset = existing ? kindOf(existing) : '';
+        const radio = (value, label) => `<label class="check"><input type="radio" name="kind-${i}" value="${value}" required`
+          + `${preset === value ? ' checked' : ''}> ${label}</label>`;
+        return `<fieldset class="import-row"><legend>${escapeHtml(user.username)}`
+          + ` <span class="muted small">· last updated ${escapeHtml(formatDate(user.updatedAt))}</span></legend>`
+          + `${radio('mine', 'Mine (backup)')}${radio('friend', 'A friend\'s')}</fieldset>`;
+      }).join('');
+      const onClose = () => {
+        dialog.removeEventListener('close', onClose);
+        resolve(dialog.returnValue === 'ok' ? found.map((item, i) => els.importForm.elements[`kind-${i}`].value) : null);
+      };
+      dialog.addEventListener('close', onClose);
+      dialog.returnValue = '';
+      dialog.showModal();
+    });
+  }
+
   async function importFiles(fileList) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
     if (saveTimer) persist();
     const imported = [];
     const problems = [];
+    const found = [];
     for (const file of files) {
       if (file.size > 5 * 1024 * 1024) {
         problems.push(`${file.name}: the file is too large`);
@@ -419,14 +454,24 @@
         problems.push(`${file.name}: ${err.message}`);
         continue;
       }
-      users.forEach((user) => {
+      users.forEach((user) => found.push({ user, fileName: file.name }));
+    }
+    els.importFile.value = '';
+    const kinds = found.length ? await askImportKinds(found) : null;
+    if (kinds) {
+      found.forEach(({ user, fileName }, i) => {
         const key = Store.userKey(user.username);
         const existing = state.users.get(key);
         if (existing && !confirm(
-          `Replace the saved Pokédex for “${existing.username}” with the one from ${file.name}?\n\n`
+          `Replace the saved Pokédex for “${existing.username}” with the one from ${fileName}?\n\n`
           + `Saved here: last updated ${formatDate(existing.updatedAt)}\nIn the file: last updated ${formatDate(user.updatedAt)}`,
         )) return;
-        if (isOwner(existing)) user.share = existing.share;
+        user.kind = kinds[i];
+        // Restoring a backup of a trainer you share keeps its link working.
+        if (isOwner(existing)) {
+          user.share = existing.share;
+          user.kind = 'mine';
+        }
         state.users.set(key, user);
         imported.push(user.username);
       });
@@ -439,7 +484,6 @@
     if (problems.length) toast(`Could not import ${problems.join('; ')}.`, true);
     else if (imported.length) toast(`Imported ${imported.join(', ')}.`);
     else toast('Nothing was imported.');
-    els.importFile.value = '';
   }
 
   // ------------------------------------------------------------------ share links
@@ -654,6 +698,7 @@
       return;
     }
     user.share = { id, role: 'follower' };
+    user.kind = 'friend';
     if (placeLinkedUser(user, findShare(id))) toast(`Added ${user.username}. Their Pokédex updates here automatically.`);
   }
 
@@ -677,6 +722,7 @@
     const user = Store.toUser(data);
     if (!user) return;
     user.share = { id, role: 'owner', ownerKey, syncedAt: user.updatedAt };
+    user.kind = 'mine';
     if (placeLinkedUser(user, findShare(id))) toast(`${user.username} is now synced with this browser. Changes you make here are shared too.`);
   }
 
@@ -704,7 +750,11 @@
     showShareError('');
     const { share } = user;
     els.shareTitle.textContent = `Share ${user.username}`;
-    if (!share) {
+    const canCreate = !share && kindOf(user) === 'mine';
+    if (!share && !canCreate) {
+      els.shareIntro.textContent = `${user.username} was imported as a friend's trainer. Only your own trainers can be shared by link; `
+        + `ask ${user.username} to send you their share link instead.`;
+    } else if (!share) {
       els.shareIntro.textContent = `Create a link that adds ${user.username} to a friend's tracker when they open it. `
         + 'Their copy updates automatically whenever you check off Pokémon here. Anyone with the link can view this Pokédex.';
     } else if (isOwner(user)) {
@@ -720,13 +770,13 @@
     els.syncBlock.open = false;
     els.syncLink.value = isOwner(user) ? linkUrl(`sync=${share.id}.${share.ownerKey}`) : '';
     els.shareStop.hidden = !isOwner(user);
-    els.shareCreate.hidden = !!share;
+    els.shareCreate.hidden = !canCreate;
     if (!els.shareDialog.open) els.shareDialog.showModal();
   }
 
   async function createShare() {
     const user = activeUser();
-    if (!user || user.share) return;
+    if (!user || user.share || kindOf(user) !== 'mine') return;
     els.shareCreate.disabled = true;
     showShareError('');
     const sentAt = user.updatedAt;
@@ -871,6 +921,7 @@
   els.importButton.addEventListener('click', () => els.importFile.click());
   els.importFile.addEventListener('change', () => importFiles(els.importFile.files));
   $('name-cancel').addEventListener('click', () => els.nameDialog.close('cancel'));
+  $('import-cancel').addEventListener('click', () => els.importDialog.close('cancel'));
   els.welcome.addEventListener('click', (event) => {
     const action = event.target.closest('[data-action]');
     if (!action) return;

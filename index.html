@@ -114,6 +114,19 @@
     </form>
   </dialog>
 
+  <dialog id="import-dialog" aria-labelledby="import-title">
+    <form method="dialog" id="import-form">
+      <h2 id="import-title">Import trainers</h2>
+      <p class="muted small">Whose Pokédex is each trainer? Choose <strong>Mine</strong> when restoring your own backup, or
+        <strong>A friend's</strong> for a file a friend sent you. Friends are listed separately in the Trainer list.</p>
+      <div id="import-list" class="import-list"></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-quiet" id="import-cancel">Cancel</button>
+        <button type="submit" value="ok" class="btn btn-primary">Import</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="share-dialog" aria-labelledby="share-title">
     <form method="dialog">
       <h2 id="share-title">Share link</h2>

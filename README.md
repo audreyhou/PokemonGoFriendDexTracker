@@ -14,7 +14,9 @@ other static host. The live site is published by GitHub Pages from the root of t
 
 - **Trainers** – choose **+ New** and enter a username. Switch between trainers with the
   *Trainer* dropdown; each trainer has a separate set of all eight Pokédexes. There is no account
-  or login — everything is saved in the browser's local storage.
+  or login — everything is saved in the browser's local storage. The dropdown lists your own
+  trainers under **My trainers** and friends' trainers under **Friends**, and the line under the
+  progress bar says *Your trainer* or *Friend*.
 - **Checking off Pokémon** – click (or tap) a Pokémon image to mark it as owned in the current tab.
   Missing Pokémon are greyed out. To mark many at once, click one Pokémon and then
   <kbd>Shift</kbd>+click another: every Pokémon shown between them gets the same checked or
@@ -33,7 +35,7 @@ other static host. The live site is published by GitHub Pages from the root of t
 1. Select your trainer and choose **Share link → Create link**, then copy the link (or use
    **Share…** on phones) and send it to friends.
 2. When a friend opens the link, your trainer is added to their *Trainer* dropdown under
-   **Friends (from share links)**. If they already have a trainer with that name, they are asked
+   **Friends**, marked **· live link**. If they already have a trainer with that name, they are asked
    before it is replaced.
 3. Every change you make is sent automatically a moment later, and friends who have the tracker
    open see it within a few seconds (otherwise the next time they open it). The status under the
@@ -57,11 +59,14 @@ contain the sync key.
 1. Select your trainer and choose **Export file**. This downloads
    `friend-dex-<username>-<date>.json`. (**Export all** saves every trainer in one file.)
 2. Send the file to a friend however you like (chat, email, cloud drive…).
-3. Your friend chooses **Import file** (or drags the file onto the page). The trainer appears in
-   their *Trainer* dropdown. Importing a trainer that already exists asks before replacing it, so
-   re-importing a newer file from the same friend updates their Pokédex.
+3. Your friend chooses **Import file** (or drags the file onto the page) and marks the trainer as
+   **A friend's**. The trainer appears under *Friends* in their *Trainer* dropdown. Importing a
+   trainer that already exists asks before replacing it, so re-importing a newer file from the same
+   friend updates their Pokédex.
 
-The same files work as backups or to move your progress to another device.
+The same files work as backups or to move your progress to another device: when importing, mark
+your trainers as **Mine (backup)**. Whether a trainer is yours or a friend's is never stored in
+the file, so the person importing always chooses. Only your own trainers can be shared by link.
 
 #### File format
 
