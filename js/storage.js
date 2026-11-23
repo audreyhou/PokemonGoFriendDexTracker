@@ -7,6 +7,8 @@
   const FILE_VERSION = 1;
   const DEX_TYPES = ['original', 'shiny', 'lucky', 'xxl', 'xxs', 'shadow', 'purified', 'perfect'];
   const MAX_NAME = 30;
+  const SHARE_ID = /^[A-Za-z0-9_-]{12}$/;
+  const OWNER_KEY = /^[A-Za-z0-9_-]{20,200}$/;
 
   function normalizeUsername(name) {
     return typeof name === 'string' ? name.replace(/\s+/g, ' ').trim().slice(0, MAX_NAME) : '';
@@ -23,12 +25,23 @@
   }
 
   function createUser(username) {
-    return { username: normalizeUsername(username), updatedAt: new Date().toISOString(), dex: emptyDex() };
+    return { username: normalizeUsername(username), updatedAt: new Date().toISOString(), dex: emptyDex(), kind: 'mine' };
   }
 
-  /* Validates untrusted data (localStorage or an imported file). Unknown entry ids are kept so a
-     file made with newer Pokédex data does not lose progress. */
-  function toUser(raw) {
+  /* Live share link of a trainer. The owner (the browser that created the link, or one synced
+     with its private sync link) holds the key needed to publish changes; followers only read. */
+  function toShare(raw) {
+    if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !SHARE_ID.test(raw.id)) return null;
+    if (raw.role === 'follower') return { id: raw.id, role: 'follower' };
+    if (raw.role !== 'owner' || typeof raw.ownerKey !== 'string' || !OWNER_KEY.test(raw.ownerKey)) return null;
+    return { id: raw.id, role: 'owner', ownerKey: raw.ownerKey, syncedAt: typeof raw.syncedAt === 'string' ? raw.syncedAt : '' };
+  }
+
+  /* Validates untrusted data (localStorage, an imported file or a share link). Unknown entry ids
+     are kept so a file made with newer Pokédex data does not lose progress. Share details and
+     whether the trainer is yours or a friend's ("kind") are only read from this browser's own
+     storage (local = true), never from files, because a file you export is imported by friends. */
+  function toUser(raw, local) {
     if (!raw || typeof raw !== 'object') return null;
     const username = normalizeUsername(raw.username);
     if (!username) return null;
@@ -41,13 +54,24 @@
       });
     });
     const updated = typeof raw.updatedAt === 'string' && !isNaN(Date.parse(raw.updatedAt)) ? raw.updatedAt : new Date().toISOString();
-    return { username, updatedAt: updated, dex };
+    const user = { username, updatedAt: updated, dex };
+    if (!local) return user;
+    const share = toShare(raw.share);
+    if (share) user.share = share;
+    // Trainers saved before kinds existed count as yours.
+    user.kind = (share && share.role === 'follower') || raw.kind === 'friend' ? 'friend' : 'mine';
+    return user;
   }
 
-  function serializeUser(user) {
+  function serializeUser(user, local) {
     const dex = {};
     DEX_TYPES.forEach((type) => { dex[type] = Array.from(user.dex[type]).sort(); });
-    return { username: user.username, updatedAt: user.updatedAt, dex };
+    const data = { username: user.username, updatedAt: user.updatedAt, dex };
+    if (local) {
+      data.kind = user.kind === 'friend' ? 'friend' : 'mine';
+      if (user.share) data.share = Object.assign({}, user.share);
+    }
+    return data;
   }
 
   function load() {
@@ -60,7 +84,7 @@
     }
     if (raw && Array.isArray(raw.users)) {
       raw.users.forEach((item) => {
-        const user = toUser(item);
+        const user = toUser(item, true);
         if (user) state.users.set(userKey(user.username), user);
       });
     }
@@ -70,7 +94,7 @@
   }
 
   function save(state) {
-    const payload = { activeUser: state.activeUser, users: Array.from(state.users.values()).map(serializeUser) };
+    const payload = { activeUser: state.activeUser, users: Array.from(state.users.values()).map((user) => serializeUser(user, true)) };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }
 
@@ -79,7 +103,7 @@
       app: FILE_APP,
       version: FILE_VERSION,
       exportedAt: new Date().toISOString(),
-      users: users.map(serializeUser),
+      users: users.map((user) => serializeUser(user)),
     }, null, 1);
   }
 
@@ -96,13 +120,13 @@
     if (typeof raw.version !== 'number' || raw.version > FILE_VERSION) {
       throw new Error('it was made by a newer version of this tracker');
     }
-    const users = raw.users.map(toUser).filter(Boolean);
+    const users = raw.users.map((item) => toUser(item)).filter(Boolean);
     if (!users.length) throw new Error('it does not contain any trainers');
     return users;
   }
 
   window.DexStore = {
-    STORAGE_KEY, DEX_TYPES, MAX_NAME,
-    normalizeUsername, userKey, createUser, load, save, toFileText, parseFileText,
+    STORAGE_KEY, DEX_TYPES, MAX_NAME, SHARE_ID, OWNER_KEY,
+    normalizeUsername, userKey, createUser, toUser, serializeUser, load, save, toFileText, parseFileText,
   };
 })();

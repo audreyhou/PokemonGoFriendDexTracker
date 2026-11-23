@@ -4,10 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pokémon GO Friend Dex Tracker</title>
-  <meta name="description" content="Track your Pokémon GO collection — original, shiny, lucky, XXL, XXS, shadow, purified and 100% — for multiple trainers, and share it as a file.">
+  <meta name="description" content="Track your Pokémon GO collection — original, shiny, lucky, XXL, XXS, shadow, purified and 100% — for multiple trainers, and share it with friends by link or file.">
   <link rel="stylesheet" href="css/styles.css">
   <script defer src="data/dex.js"></script>
+  <script defer src="js/config.js"></script>
   <script defer src="js/storage.js"></script>
+  <script defer src="js/live.js"></script>
   <script defer src="js/app.js"></script>
 </head>
 <body data-tab="original">
@@ -28,6 +30,7 @@
     </div>
 
     <div class="file-bar">
+      <button type="button" id="share-user" class="btn" disabled hidden>Share link</button>
       <button type="button" id="export-user" class="btn" disabled>Export file</button>
       <button type="button" id="export-all" class="btn btn-quiet" disabled>Export all</button>
       <button type="button" id="import-button" class="btn btn-primary">Import file</button>
@@ -58,6 +61,7 @@
         <span id="progress-bar"></span>
       </div>
       <p id="user-updated" class="muted small"></p>
+      <p id="live-status" class="live-status small" hidden></p>
     </div>
   </section>
 
@@ -80,7 +84,7 @@
 
   <section id="welcome" class="welcome" hidden>
     <h2>Welcome, Trainer!</h2>
-    <p>Add your username to start checking off Pokémon, or import a file a friend sent you. Everything is saved in this browser — no account needed.</p>
+    <p>Add your username to start checking off Pokémon, or open a share link or import a file a friend sent you. Everything is saved in this browser — no account needed.</p>
     <div class="welcome-actions">
       <button type="button" class="btn btn-primary" data-action="add-user">Create my trainer</button>
       <button type="button" class="btn" data-action="import">Import a friend's file</button>
@@ -106,6 +110,49 @@
       <div class="dialog-actions">
         <button type="button" class="btn btn-quiet" id="name-cancel">Cancel</button>
         <button type="submit" value="ok" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="import-dialog" aria-labelledby="import-title">
+    <form method="dialog" id="import-form">
+      <h2 id="import-title">Import trainers</h2>
+      <p class="muted small">Whose Pokédex is each trainer? Choose <strong>Mine</strong> when restoring your own backup, or
+        <strong>A friend's</strong> for a file a friend sent you. Friends are listed separately in the Trainer list.</p>
+      <div id="import-list" class="import-list"></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-quiet" id="import-cancel">Cancel</button>
+        <button type="submit" value="ok" class="btn btn-primary">Import</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="share-dialog" aria-labelledby="share-title">
+    <form method="dialog">
+      <h2 id="share-title">Share link</h2>
+      <p id="share-intro"></p>
+      <div id="share-links" class="share-links" hidden>
+        <label for="share-link">Link for friends</label>
+        <div class="link-row">
+          <input id="share-link" readonly>
+          <button type="button" class="btn" data-copy="share-link">Copy</button>
+          <button type="button" class="btn" id="share-native" hidden>Share…</button>
+        </div>
+        <details id="sync-block" class="sync-block" hidden>
+          <summary>Use this trainer in another browser</summary>
+          <p class="muted small">Open this private link on your other phone or computer to edit this trainer there too.
+            Do not send it to friends: anyone with it can change your Pokédex.</p>
+          <div class="link-row">
+            <input id="sync-link" readonly aria-label="Private sync link">
+            <button type="button" class="btn" data-copy="sync-link">Copy</button>
+          </div>
+        </details>
+      </div>
+      <p id="share-error" class="error small" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-quiet" id="share-stop" hidden>Stop sharing</button>
+        <button type="button" class="btn btn-quiet" id="share-close">Close</button>
+        <button type="button" class="btn btn-primary" id="share-create" hidden>Create link</button>
       </div>
     </form>
   </dialog>
