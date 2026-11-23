@@ -63,9 +63,12 @@
       family.forEach((relative) => relativesByDex.get(dex).add(relative));
     });
   });
+  // Dex numbers that evolve from something (any stage after the first), e.g. Ivysaur or Pikachu.
+  const evolvedDexes = new Set();
+  DATA.families.forEach((family) => family.slice(1).forEach((dex) => evolvedDexes.add(dex)));
 
   let state = Store.load();
-  const filters = { search: '', evolution: false, gen: '', status: '', kind: '', unreleased: false };
+  const filters = {}; // filled from the toolbar controls by readFilters()
   let genCounts = [];
   let saveTimer = null;
   let toastTimer = null;
@@ -143,13 +146,15 @@
     const eligible = TABS[tab].eligible;
     if (eligible && !eligible(e)) return false;
     if (!filters.unreleased && e.unreleased) return false;
+    if (!filters.evolution && evolvedDexes.has(e.dex)) return false;
     if (filters.kind === 'regular' && e.costume) return false;
     if (filters.kind === 'costume' && !e.costume) return false;
     return true;
   }
 
-  /* With "Include evolution line", a search for a Pokémon also shows every member of its
-     evolution family. Costume names are ignored here so "Pikachu" does not pull in the
+  /* With "Include evolution line" (on by default), a search for a Pokémon also shows every member
+     of its evolution family; with it off, only first-stage Pokémon are listed at all (see inPool).
+     Costume names are ignored here so "Pikachu" does not pull in the
      Bulbasaur line just because of Bulbasaur's Pikachu visor costume. */
   function evolutionLineDexes() {
     if (!filters.search || !filters.evolution) return null;
@@ -481,19 +486,26 @@
     else els.importFile.click();
   });
 
+  /* The toolbar controls are the source of truth for the filters. Reading them all at once (also
+     at startup) keeps the list in step with what is shown, even if the browser restored old
+     values on reload or Back without firing input/change events. */
+  function readFilters() {
+    filters.search = fold(els.search.value.trim());
+    filters.evolution = els.evolutionFilter.checked;
+    filters.gen = els.genFilter.value;
+    filters.status = els.statusFilter.value;
+    filters.kind = els.kindFilter.value;
+    filters.unreleased = els.unreleasedFilter.checked;
+  }
+  const applyFilters = () => { readFilters(); render(); };
+
   let searchTimer = null;
   els.search.addEventListener('input', () => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      filters.search = fold(els.search.value.trim());
-      render();
-    }, 150);
+    searchTimer = setTimeout(applyFilters, 150);
   });
-  els.evolutionFilter.addEventListener('change', () => { filters.evolution = els.evolutionFilter.checked; render(); });
-  els.genFilter.addEventListener('change', () => { filters.gen = els.genFilter.value; render(); });
-  els.statusFilter.addEventListener('change', () => { filters.status = els.statusFilter.value; render(); });
-  els.kindFilter.addEventListener('change', () => { filters.kind = els.kindFilter.value; render(); });
-  els.unreleasedFilter.addEventListener('change', () => { filters.unreleased = els.unreleasedFilter.checked; render(); });
+  [els.evolutionFilter, els.genFilter, els.statusFilter, els.kindFilter, els.unreleasedFilter]
+    .forEach((control) => control.addEventListener('change', applyFilters));
   window.addEventListener('hashchange', render);
 
   let dragDepth = 0;
@@ -529,5 +541,6 @@
 
   gens.forEach(([, name], index) => els.genFilter.add(new Option(`Gen ${index + 1} · ${name}`, String(index))));
   els.dataDate.textContent = formatDate(DATA.generatedAt);
+  readFilters();
   refresh();
 })();
