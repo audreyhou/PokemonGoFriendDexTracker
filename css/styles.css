@@ -131,6 +131,7 @@ select, input[type="search"], dialog input {
 }
 .summary h2 { font-size: 1.35rem; }
 .summary p { margin-top: 0.2rem; }
+.summary .dex-actions { margin-top: 0.6rem; }
 kbd {
   font: inherit;
   font-size: 0.85em;

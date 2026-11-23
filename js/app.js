@@ -46,6 +46,7 @@
     progressBar: $('progress-bar'), userUpdated: $('user-updated'), liveStatus: $('live-status'),
     search: $('search'), evolutionFilter: $('evolution-filter'), genFilter: $('gen-filter'), statusFilter: $('status-filter'),
     priorityFilter: $('priority-filter'), kindFilter: $('kind-filter'),
+    wishlistActions: $('wishlist-actions'), wishlistSync: $('wishlist-sync'),
     unreleasedFilter: $('unreleased-filter'), welcome: $('welcome'), dex: $('dex'), dataDate: $('data-date'),
     dropOverlay: $('drop-overlay'), toast: $('toast'),
     importDialog: $('import-dialog'), importForm: $('import-form'), importList: $('import-list'),
@@ -225,6 +226,8 @@
     els.blurb.textContent = config.blurb;
     els.welcome.hidden = !!user;
     els.statusFilter.hidden = !!config.priorities;
+    els.wishlistActions.hidden = !config.priorities;
+    els.wishlistSync.disabled = isFollower(user);
     els.priorityFilter.hidden = !config.priorities;
 
     genCounts = gens.map(() => ({ caught: 0, total: 0 }));
@@ -896,6 +899,36 @@
     return mark + 1 < PRIORITY_COUNT ? mark + 1 : null;
   }
 
+  const LUCKY_SYNC_PRIORITY = 2; // P2
+
+  /* Adds every released, tradeable Pokémon missing from the trainer's Lucky Pokédex to their
+     wishlist as P2. Pokémon already on the wishlist keep their priority and nothing is removed,
+     so syncing again never undoes the trainer's own edits. */
+  function syncLuckyWishlist() {
+    const user = activeUser();
+    if (!user) {
+      addUser();
+      return;
+    }
+    if (isFollower(user)) return;
+    const wishlist = user.dex.wishlist;
+    const missing = entries.filter((e) => !e.unreleased && TABS.lucky.eligible(e) && TABS.wishlist.eligible(e)
+      && !user.dex.lucky.has(e.id) && !wishlist.has(e.id));
+    if (!missing.length) {
+      toast('Everything missing from the Lucky Pokédex is already on the wishlist.');
+      return;
+    }
+    if (!confirm(
+      `Add the ${missing.length.toLocaleString()} Pokémon missing from ${user.username}'s Lucky Pokédex to the wishlist as P${LUCKY_SYNC_PRIORITY}?\n\n`
+      + 'Pokémon already on the wishlist keep their priority, and you can change any of them afterwards.',
+    )) return;
+    missing.forEach((e) => wishlist.set(e.id, LUCKY_SYNC_PRIORITY));
+    user.updatedAt = new Date().toISOString();
+    persist();
+    render();
+    toast(`Added ${missing.length.toLocaleString()} Pokémon to the wishlist as P${LUCKY_SYNC_PRIORITY}.`);
+  }
+
   // Shift+click would otherwise also select the page text between the two clicks.
   els.dex.addEventListener('mousedown', (event) => {
     if (event.shiftKey && event.target.closest('button.mon')) event.preventDefault();
@@ -982,6 +1015,7 @@
     if (action.dataset.action === 'add-user') addUser();
     else els.importFile.click();
   });
+  els.wishlistSync.addEventListener('click', syncLuckyWishlist);
 
   /* The toolbar controls are the source of truth for the filters. Reading them all at once (also
      at startup) keeps the list in step with what is shown, even if the browser restored old
