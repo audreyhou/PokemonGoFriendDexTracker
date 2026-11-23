@@ -280,6 +280,19 @@ dialog form { display: grid; gap: 0.6rem; }
 dialog h2 { font-size: 1.15rem; }
 dialog label { font-weight: 600; font-size: 0.9rem; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.4rem; }
+#share-dialog { width: min(30rem, calc(100vw - 2rem)); }
+.share-links:not([hidden]) { display: grid; gap: 0.45rem; }
+.link-row { display: flex; gap: 0.4rem; }
+.link-row input { flex: 1; min-width: 0; }
+.sync-block { border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.sync-block summary { cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+.sync-block > * + * { margin-top: 0.45rem; }
+
+.live-status { color: #23913f; font-weight: 600; }
+.live-status::before { content: "● "; }
+.live-status[data-status="saving"] { color: var(--muted); }
+.live-status[data-status="offline"] { color: #b54708; }
+.read-only .mon { cursor: default; }
 
 @media (max-width: 640px) {
   .app-header, .summary, .toolbar, .dex, .tabs { padding-left: 0.75rem; padding-right: 0.75rem; }

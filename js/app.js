@@ -1,9 +1,10 @@
-/* Friend Dex Tracker UI: trainer switching, dex tabs, filtering, and file import/export. */
+/* Friend Dex Tracker UI: trainer switching, dex tabs, filtering, file import/export and share links. */
 (function () {
   'use strict';
 
   const DATA = window.DEX_DATA;
   const Store = window.DexStore;
+  const Live = window.DexLive;
   const GAMEINFO_IMG = 'https://pokemon.gameinfo.io/img';
 
   const TABS = {
@@ -32,13 +33,16 @@
   const $ = (id) => document.getElementById(id);
   const els = {
     userSelect: $('user-select'), addUser: $('add-user'), renameUser: $('rename-user'), deleteUser: $('delete-user'),
-    exportUser: $('export-user'), exportAll: $('export-all'), importButton: $('import-button'), importFile: $('import-file'),
+    shareUser: $('share-user'), exportUser: $('export-user'), exportAll: $('export-all'), importButton: $('import-button'), importFile: $('import-file'),
     title: $('dex-title'), blurb: $('dex-blurb'), progressCount: $('progress-count'), progressPct: $('progress-pct'),
-    progressBar: $('progress-bar'), userUpdated: $('user-updated'),
+    progressBar: $('progress-bar'), userUpdated: $('user-updated'), liveStatus: $('live-status'),
     search: $('search'), evolutionFilter: $('evolution-filter'), genFilter: $('gen-filter'), statusFilter: $('status-filter'), kindFilter: $('kind-filter'),
     unreleasedFilter: $('unreleased-filter'), welcome: $('welcome'), dex: $('dex'), dataDate: $('data-date'),
     dropOverlay: $('drop-overlay'), toast: $('toast'),
     nameDialog: $('name-dialog'), nameForm: $('name-form'), nameTitle: $('name-title'), nameInput: $('name-input'), nameError: $('name-error'),
+    shareDialog: $('share-dialog'), shareTitle: $('share-title'), shareIntro: $('share-intro'), shareLinks: $('share-links'),
+    shareLink: $('share-link'), shareNative: $('share-native'), syncBlock: $('sync-block'), syncLink: $('sync-link'),
+    shareError: $('share-error'), shareStop: $('share-stop'), shareClose: $('share-close'), shareCreate: $('share-create'),
   };
 
   const gens = DATA.gens;
@@ -97,6 +101,10 @@
     return state.activeUser ? state.users.get(state.activeUser) || null : null;
   }
 
+  // Owners created the share link in this browser (or synced it here); followers opened a friend's link.
+  const isOwner = (user) => !!(user && user.share && user.share.role === 'owner');
+  const isFollower = (user) => !!(user && user.share && user.share.role === 'follower');
+
   function toast(message, isError) {
     els.toast.textContent = message;
     els.toast.classList.toggle('error', !!isError);
@@ -113,6 +121,7 @@
     } catch (err) {
       toast('Could not save: this browser\'s storage is full or disabled. Export a file to keep your progress.', true);
     }
+    schedulePush();
   }
 
   function scheduleSave() {
@@ -233,25 +242,51 @@
     });
     const user = activeUser();
     els.userUpdated.textContent = user ? `${user.username} · last updated ${formatDate(user.updatedAt)}` : '';
+    updateLiveStatus();
   }
 
   function renderUsers() {
     const users = Array.from(state.users.entries()).sort((a, b) => a[1].username.localeCompare(b[1].username));
     els.userSelect.innerHTML = '';
     if (!users.length) els.userSelect.add(new Option('No trainers yet', ''));
-    users.forEach(([key, user]) => els.userSelect.add(new Option(user.username, key)));
+    const option = ([key, user]) => new Option(isOwner(user) ? `${user.username} · shared` : user.username, key);
+    const friends = users.filter(([, user]) => isFollower(user));
+    if (friends.length) {
+      [['Your trainers', users.filter(([, user]) => !isFollower(user))], ['Friends (from share links)', friends]].forEach(([label, list]) => {
+        if (!list.length) return;
+        const group = document.createElement('optgroup');
+        group.label = label;
+        list.forEach((item) => group.appendChild(option(item)));
+        els.userSelect.appendChild(group);
+      });
+    } else {
+      users.forEach((item) => els.userSelect.add(option(item)));
+    }
     els.userSelect.value = state.activeUser || '';
-    const hasUser = !!activeUser();
+    const user = activeUser();
+    const hasUser = !!user;
     els.userSelect.disabled = !users.length;
-    els.renameUser.disabled = !hasUser;
+    els.renameUser.disabled = !hasUser || isFollower(user);
     els.deleteUser.disabled = !hasUser;
+    els.deleteUser.textContent = isFollower(user) ? 'Remove' : 'Delete';
+    els.shareUser.hidden = !Live.enabled;
+    els.shareUser.disabled = !hasUser;
     els.exportUser.disabled = !hasUser;
     els.exportAll.disabled = users.length < 2;
+    document.body.classList.toggle('read-only', isFollower(user));
   }
 
   function refresh() {
     renderUsers();
     render();
+    updateWatch();
+  }
+
+  function selectUser(key) {
+    if (saveTimer) persist();
+    state.activeUser = key;
+    persist();
+    refresh();
   }
 
   // ------------------------------------------------------------------ trainers
@@ -301,7 +336,7 @@
 
   async function renameUser() {
     const user = activeUser();
-    if (!user) return;
+    if (!user || isFollower(user)) return;
     const oldKey = state.activeUser;
     const name = await askName('Rename trainer', user.username, oldKey);
     if (!name || name === user.username) return;
@@ -318,7 +353,15 @@
   function deleteUser() {
     const user = activeUser();
     if (!user) return;
-    if (!confirm(`Delete ${user.username}'s Pokédex from this browser?\n\nExport a file first if you want to keep a copy.`)) return;
+    let question = `Delete ${user.username}'s Pokédex from this browser?\n\nExport a file first if you want to keep a copy.`;
+    if (isFollower(user)) {
+      question = `Remove ${user.username} from this browser?\n\nOnly your copy is removed. ${user.username}'s own Pokédex and share link are not affected, `
+        + 'and you can add them again by opening their link.';
+    } else if (isOwner(user)) {
+      question += `\n\n${user.username}'s share link keeps working with the last saved Pokédex. To turn it off, use Share link → Stop sharing first. `
+        + 'If no other browser is synced, the link can no longer be changed after this.';
+    }
+    if (!confirm(question)) return;
     state.users.delete(state.activeUser);
     state.activeUser = state.users.size ? state.users.keys().next().value : null;
     persist();
@@ -383,6 +426,7 @@
           `Replace the saved Pokédex for “${existing.username}” with the one from ${file.name}?\n\n`
           + `Saved here: last updated ${formatDate(existing.updatedAt)}\nIn the file: last updated ${formatDate(user.updatedAt)}`,
         )) return;
+        if (isOwner(existing)) user.share = existing.share;
         state.users.set(key, user);
         imported.push(user.username);
       });
@@ -396,6 +440,346 @@
     else if (imported.length) toast(`Imported ${imported.join(', ')}.`);
     else toast('Nothing was imported.');
     els.importFile.value = '';
+  }
+
+  // ------------------------------------------------------------------ share links
+
+  const LINK_HASH = /^#(follow|sync)=([A-Za-z0-9_-]{12})(?:\.([A-Za-z0-9_-]{20,200}))?$/;
+  const ownerStatus = new Map(); // share id -> 'saving' | 'synced' | 'offline'
+  const pulling = new Set();
+  const pullAgain = new Set();
+  let pushTimer = null;
+  let pushing = false;
+  let pushAgain = false;
+  let pushRetryMs = 0;
+  const watcher = Live.enabled ? Live.createWatcher((id) => pullShare(id)) : null;
+
+  const needsPush = (user) => isOwner(user) && user.share.syncedAt !== user.updatedAt;
+  // Only these API answers mean the link is really gone; other 403/404s can come from Azure itself.
+  const linkGone = (err) => err.code === 'share_not_found' || err.code === 'bad_owner_key';
+  const linkUrl = (hash) => `${location.origin}${location.pathname}#${hash}`;
+
+  function findShare(id) {
+    for (const entry of state.users) {
+      if (entry[1].share && entry[1].share.id === id) return entry;
+    }
+    return null;
+  }
+
+  // Followers watch for the owner's changes; owners watch for changes made in their other synced browsers.
+  function updateWatch() {
+    if (watcher) watcher.watch(Array.from(state.users.values()).filter((user) => user.share).map((user) => user.share.id));
+  }
+
+  function updateLiveStatus() {
+    const user = activeUser();
+    if (!user || !user.share) {
+      els.liveStatus.hidden = true;
+      return;
+    }
+    let status = 'live';
+    let text = `Shared by ${user.username} · updates automatically`;
+    if (isOwner(user)) {
+      status = ownerStatus.get(user.share.id) || (needsPush(user) ? 'saving' : 'synced');
+      if (status === 'synced' && needsPush(user)) status = 'saving';
+      text = {
+        synced: 'Shared by link · friends see your changes',
+        saving: 'Shared by link · sharing changes…',
+        offline: 'Shared by link · offline, changes will be shared when you reconnect',
+      }[status];
+    }
+    els.liveStatus.textContent = text;
+    els.liveStatus.dataset.status = status;
+    els.liveStatus.hidden = false;
+  }
+
+  function schedulePush(delay) {
+    if (!Live.enabled) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(pushChanges, delay === undefined ? 1500 : delay);
+  }
+
+  /* Sends changes of trainers this browser owns to the share server. */
+  async function pushChanges(keepalive) {
+    clearTimeout(pushTimer);
+    pushTimer = null;
+    if (pushing) {
+      pushAgain = true;
+      return;
+    }
+    const pending = Array.from(state.users.values()).filter(needsPush);
+    if (!pending.length) return;
+    pushing = true;
+    let offline = false;
+    for (const user of pending) {
+      const { id, ownerKey } = user.share;
+      const sentAt = user.updatedAt;
+      ownerStatus.set(id, 'saving');
+      updateLiveStatus();
+      try {
+        await Live.api.update(id, ownerKey, Store.serializeUser(user), keepalive === true);
+        const linked = findShare(id);
+        if (linked && isOwner(linked[1])) linked[1].share.syncedAt = sentAt;
+        ownerStatus.set(id, 'synced');
+      } catch (err) {
+        if (err.status === 409) {
+          ownerStatus.set(id, 'synced');
+          pullShare(id, true);
+        } else if (linkGone(err)) {
+          shareEnded(id);
+        } else {
+          ownerStatus.set(id, 'offline');
+          offline = true;
+        }
+      }
+    }
+    pushing = false;
+    persist();
+    if (pushAgain) {
+      pushAgain = false;
+      schedulePush(0);
+    } else if (offline) {
+      pushRetryMs = Math.min(pushRetryMs ? pushRetryMs * 2 : 15000, 5 * 60 * 1000);
+      schedulePush(pushRetryMs);
+    } else {
+      pushRetryMs = 0;
+    }
+    updateLiveStatus();
+  }
+
+  /* Downloads the latest version of a shared trainer. Owners only take it when it is newer than
+     their own copy (changed in another synced browser), unless force is set after a conflict. */
+  async function pullShare(id, force) {
+    if (pulling.has(id)) {
+      pullAgain.add(id);
+      return;
+    }
+    pulling.add(id);
+    try {
+      applyRemote(id, await Live.api.get(id), force);
+    } catch (err) {
+      if (linkGone(err)) shareEnded(id);
+    } finally {
+      pulling.delete(id);
+      if (pullAgain.delete(id)) pullShare(id, force);
+    }
+  }
+
+  function pullAll() {
+    if (!Live.enabled) return;
+    Array.from(state.users.values()).forEach((user) => { if (user.share) pullShare(user.share.id); });
+  }
+
+  function applyRemote(id, data, force) {
+    const linked = findShare(id);
+    const incoming = Store.toUser(data);
+    if (!linked || !incoming) return;
+    const [key, user] = linked;
+    if (isOwner(user)) {
+      if (!force && (needsPush(user) || !(Date.parse(incoming.updatedAt) > Date.parse(user.updatedAt)))) return;
+      user.share.syncedAt = incoming.updatedAt;
+    } else if (incoming.updatedAt === user.updatedAt && incoming.username === user.username) {
+      return;
+    }
+    user.dex = incoming.dex;
+    user.updatedAt = incoming.updatedAt;
+    let newKey = key;
+    const renamedKey = Store.userKey(incoming.username);
+    if (renamedKey === key || !state.users.has(renamedKey)) {
+      user.username = incoming.username;
+      newKey = renamedKey;
+    }
+    if (newKey !== key) {
+      state.users.delete(key);
+      state.users.set(newKey, user);
+      if (state.activeUser === key) state.activeUser = newKey;
+    }
+    persist();
+    if (state.activeUser === newKey) refresh();
+    else renderUsers();
+    if (force) toast(`${user.username} was changed in another browser, so this browser now shows the newest version.`);
+  }
+
+  function shareEnded(id) {
+    const linked = findShare(id);
+    if (!linked) return;
+    const user = linked[1];
+    const wasOwner = isOwner(user);
+    delete user.share;
+    ownerStatus.delete(id);
+    persist();
+    refresh();
+    toast(wasOwner
+      ? `${user.username}'s share link was turned off, so changes here are no longer shared.`
+      : `${user.username} turned off their share link. Their last Pokédex is kept here.`, true);
+  }
+
+  /* Adds a trainer from a share or sync link, asking before it replaces a trainer with the same name. */
+  function placeLinkedUser(user, linked) {
+    const key = Store.userKey(user.username);
+    const existing = state.users.get(key);
+    if (existing && (!linked || existing !== linked[1])) {
+      if (isOwner(existing)) {
+        toast(`You already have a shared trainer named “${existing.username}”. Rename it, then open the link again.`, true);
+        return false;
+      }
+      if (!confirm(
+        `Replace the saved Pokédex for “${existing.username}” with the one from this link?\n\n`
+        + `Saved here: last updated ${formatDate(existing.updatedAt)}\nFrom the link: last updated ${formatDate(user.updatedAt)}`,
+      )) return false;
+    }
+    if (linked) state.users.delete(linked[0]);
+    state.users.set(key, user);
+    selectUser(key);
+    return true;
+  }
+
+  async function followShare(id) {
+    const linked = findShare(id);
+    if (linked && isOwner(linked[1])) {
+      selectUser(linked[0]);
+      toast(`That is the share link for your own trainer, ${linked[1].username}.`);
+      return;
+    }
+    let data;
+    try {
+      data = await Live.api.get(id);
+    } catch (err) {
+      toast(err.code === 'share_not_found' ? 'This share link was turned off or does not exist.' : `Could not open the share link: ${err.message}.`, true);
+      return;
+    }
+    const user = Store.toUser(data);
+    if (!user) {
+      toast('This share link does not contain a trainer.', true);
+      return;
+    }
+    user.share = { id, role: 'follower' };
+    if (placeLinkedUser(user, findShare(id))) toast(`Added ${user.username}. Their Pokédex updates here automatically.`);
+  }
+
+  async function syncShare(id, ownerKey) {
+    const linked = findShare(id);
+    if (linked && isOwner(linked[1])) {
+      selectUser(linked[0]);
+      toast(`${linked[1].username} is already synced with this browser.`);
+      return;
+    }
+    let data;
+    try {
+      data = await Live.api.verify(id, ownerKey);
+    } catch (err) {
+      let message = `Could not sync: ${err.message}.`;
+      if (err.code === 'bad_owner_key') message = 'This sync link is not valid.';
+      else if (err.code === 'share_not_found') message = 'This trainer\'s share link was turned off, so it cannot be synced.';
+      toast(message, true);
+      return;
+    }
+    const user = Store.toUser(data);
+    if (!user) return;
+    user.share = { id, role: 'owner', ownerKey, syncedAt: user.updatedAt };
+    if (placeLinkedUser(user, findShare(id))) toast(`${user.username} is now synced with this browser. Changes you make here are shared too.`);
+  }
+
+  /* Handles #follow=<id> (a friend's share link) and #sync=<id>.<key> (your private sync link). */
+  function openLinkFromHash() {
+    const match = LINK_HASH.exec(location.hash);
+    if (!match) return false;
+    history.replaceState(null, '', location.pathname + location.search);
+    render();
+    if (!Live.enabled) toast('Share links are not available on this copy of the tracker.', true);
+    else if (match[1] === 'follow') followShare(match[2]);
+    else if (match[3]) syncShare(match[2], match[3]);
+    return true;
+  }
+
+  function showShareError(message) {
+    els.shareError.textContent = message;
+    els.shareError.hidden = !message;
+  }
+
+  function showShareDialog() {
+    const user = activeUser();
+    if (!user) return;
+    if (saveTimer) persist();
+    showShareError('');
+    const { share } = user;
+    els.shareTitle.textContent = `Share ${user.username}`;
+    if (!share) {
+      els.shareIntro.textContent = `Create a link that adds ${user.username} to a friend's tracker when they open it. `
+        + 'Their copy updates automatically whenever you check off Pokémon here. Anyone with the link can view this Pokédex.';
+    } else if (isOwner(user)) {
+      els.shareIntro.textContent = `Send this link to friends. Opening it adds ${user.username} to their tracker, and their copy `
+        + 'updates automatically when you make changes.';
+    } else {
+      els.shareIntro.textContent = `This is ${user.username}'s share link. Anyone who opens it can add ${user.username} to their tracker.`;
+    }
+    els.shareLinks.hidden = !share;
+    els.shareLink.value = share ? linkUrl(`follow=${share.id}`) : '';
+    els.shareNative.hidden = !share || typeof navigator.share !== 'function';
+    els.syncBlock.hidden = !isOwner(user);
+    els.syncBlock.open = false;
+    els.syncLink.value = isOwner(user) ? linkUrl(`sync=${share.id}.${share.ownerKey}`) : '';
+    els.shareStop.hidden = !isOwner(user);
+    els.shareCreate.hidden = !!share;
+    if (!els.shareDialog.open) els.shareDialog.showModal();
+  }
+
+  async function createShare() {
+    const user = activeUser();
+    if (!user || user.share) return;
+    els.shareCreate.disabled = true;
+    showShareError('');
+    const sentAt = user.updatedAt;
+    try {
+      const created = await Live.api.create(Store.serializeUser(user));
+      user.share = { id: created.id, role: 'owner', ownerKey: created.ownerKey, syncedAt: sentAt };
+      ownerStatus.set(created.id, 'synced');
+      persist();
+      refresh();
+      showShareDialog();
+    } catch (err) {
+      showShareError(`Could not create the link: ${err.message}.`);
+    } finally {
+      els.shareCreate.disabled = false;
+    }
+  }
+
+  async function stopSharing() {
+    const user = activeUser();
+    if (!isOwner(user)) return;
+    if (!confirm(`Turn off ${user.username}'s share link?\n\nFriends keep their last copy but stop getting updates, and sync links `
+      + 'for your other browsers stop working. You can create a new link at any time.')) return;
+    const { id, ownerKey } = user.share;
+    els.shareStop.disabled = true;
+    try {
+      await Live.api.remove(id, ownerKey);
+    } catch (err) {
+      if (!linkGone(err)) {
+        showShareError(`Could not turn off the link: ${err.message}.`);
+        return;
+      }
+    } finally {
+      els.shareStop.disabled = false;
+    }
+    // A push or live message may already have noticed the link is gone while the request ran.
+    ownerStatus.delete(id);
+    if (user.share && user.share.id === id) delete user.share;
+    persist();
+    refresh();
+    els.shareDialog.close();
+    toast(`Turned off ${user.username}'s share link.`);
+  }
+
+  async function copyLink(button) {
+    const input = $(button.dataset.copy);
+    try {
+      await navigator.clipboard.writeText(input.value);
+    } catch (err) {
+      input.select();
+      document.execCommand('copy');
+    }
+    button.textContent = 'Copied!';
+    setTimeout(() => { button.textContent = 'Copy'; }, 2000);
   }
 
   // ------------------------------------------------------------------ events
@@ -424,6 +808,10 @@
     const user = activeUser();
     if (!user) {
       addUser();
+      return;
+    }
+    if (isFollower(user)) {
+      toast(`${user.username}'s Pokédex comes from their share link, so only ${user.username} can change it.`);
       return;
     }
     const set = user.dex[currentTab()];
@@ -460,15 +848,24 @@
     }
   }, true);
 
-  els.userSelect.addEventListener('change', () => {
-    if (saveTimer) persist();
-    state.activeUser = els.userSelect.value || null;
-    persist();
-    refresh();
-  });
+  els.userSelect.addEventListener('change', () => selectUser(els.userSelect.value || null));
   els.addUser.addEventListener('click', addUser);
   els.renameUser.addEventListener('click', renameUser);
   els.deleteUser.addEventListener('click', deleteUser);
+  els.shareUser.addEventListener('click', showShareDialog);
+  els.shareCreate.addEventListener('click', createShare);
+  els.shareStop.addEventListener('click', stopSharing);
+  els.shareClose.addEventListener('click', () => els.shareDialog.close());
+  els.shareNative.addEventListener('click', () => {
+    const user = activeUser();
+    if (!user) return;
+    navigator.share({ title: `${user.username}'s Pokédex`, text: `Add ${user.username} to your Friend Dex Tracker:`, url: els.shareLink.value })
+      .catch(() => {});
+  });
+  els.shareDialog.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-copy]');
+    if (button) copyLink(button);
+  });
   els.exportUser.addEventListener('click', exportUser);
   els.exportAll.addEventListener('click', exportAll);
   els.importButton.addEventListener('click', () => els.importFile.click());
@@ -494,7 +891,7 @@
   els.statusFilter.addEventListener('change', () => { filters.status = els.statusFilter.value; render(); });
   els.kindFilter.addEventListener('change', () => { filters.kind = els.kindFilter.value; render(); });
   els.unreleasedFilter.addEventListener('change', () => { filters.unreleased = els.unreleasedFilter.checked; render(); });
-  window.addEventListener('hashchange', render);
+  window.addEventListener('hashchange', () => { if (!openLinkFromHash()) render(); });
 
   let dragDepth = 0;
   const hasFiles = (event) => !!event.dataTransfer && Array.from(event.dataTransfer.types || []).includes('Files');
@@ -522,12 +919,29 @@
     state = Store.load();
     refresh();
   });
-  window.addEventListener('pagehide', () => { if (saveTimer) persist(); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveTimer) persist(); });
+  // Leaving the page: save, and send unshared changes right away instead of after the usual delay.
+  function flushOnLeave() {
+    if (saveTimer) persist();
+    if (Live.enabled && Array.from(state.users.values()).some(needsPush)) pushChanges(true);
+  }
+  window.addEventListener('pagehide', flushOnLeave);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      flushOnLeave();
+      if (watcher) watcher.pause();
+    } else if (watcher) {
+      watcher.resume();
+      pullAll();
+    }
+  });
+  window.addEventListener('online', () => schedulePush(0));
 
   // ------------------------------------------------------------------ start
 
   gens.forEach(([, name], index) => els.genFilter.add(new Option(`Gen ${index + 1} · ${name}`, String(index))));
   els.dataDate.textContent = formatDate(DATA.generatedAt);
   refresh();
+  pullAll();
+  schedulePush(0);
+  openLinkFromHash();
 })();
