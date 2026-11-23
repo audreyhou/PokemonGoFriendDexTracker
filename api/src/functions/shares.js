@@ -3,12 +3,13 @@ const { app } = require('@azure/functions');
 const { createShareApi, HttpError, MAX_BODY_BYTES } = require('../shares');
 const { createTableStore, createPubSub } = require('../azure');
 
-let api = null;
+let services = null;
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
+// Storage and Web PubSub clients are reused; the API is rebuilt per request so warnings go to that request's log.
 function getApi(context) {
-  if (!api) api = createShareApi({ store: createTableStore(), pubsub: createPubSub(), log: (message) => context.warn(message) });
-  return api;
+  if (!services) services = { store: createTableStore(), pubsub: createPubSub() };
+  return createShareApi({ ...services, log: (message) => context.warn(message) });
 }
 
 async function readBody(request) {

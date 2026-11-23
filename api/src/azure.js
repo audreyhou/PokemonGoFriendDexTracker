@@ -67,7 +67,7 @@ function createPubSub() {
     return client;
   };
   return {
-    notify: (id, message) => service().sendToGroup(group(id), message),
+    notify: (id, message) => service().group(group(id)).sendToAll(message),
     /* Clients connect with the json.webpubsub.azure.v1 subprotocol and join each share-<id> group
        themselves; the token only allows joining the groups of the requested links. */
     async clientUrl(ids) {

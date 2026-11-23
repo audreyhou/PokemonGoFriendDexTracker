@@ -114,7 +114,7 @@ function createShareApi({ store, pubsub, log = () => {} }) {
     try {
       await pubsub.notify(id, message);
     } catch (err) {
-      log(`Could not send the live update for ${id}: ${err.message}`);
+      log(`Could not send the live update for ${id}: ${err.statusCode || ''} ${err.code || ''} ${err.message}`);
     }
   }
 
