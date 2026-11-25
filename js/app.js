@@ -248,7 +248,11 @@
       if (e.gen !== openGen) {
         if (openGen >= 0) html.push('</div></section>');
         openGen = e.gen;
-        html.push(`<section class="gen"><h3>Gen ${e.gen + 1} · ${escapeHtml(gens[e.gen][1])} <span class="gen-count" data-gen="${e.gen}"></span></h3><div class="grid">`);
+        const genName = `Gen ${e.gen + 1} · ${escapeHtml(gens[e.gen][1])}`;
+        // The wishlist has priorities rather than a checked state, so it has no select-all box.
+        const selectAll = config.priorities ? ''
+          : `<input type="checkbox" class="gen-select" data-name="${genName}" aria-label="Select every Pokémon shown in ${genName}" title="Check or uncheck every Pokémon shown in this generation">`;
+        html.push(`<section class="gen"><h3>${selectAll}${genName} <span class="gen-count" data-gen="${e.gen}"></span></h3><div class="grid">`);
       }
       html.push(cardHtml(e, has, !!config.shiny, config.priorities ? caught.get(e.id) : undefined));
     });
@@ -285,6 +289,13 @@
     els.dex.querySelectorAll('.gen-count').forEach((span) => {
       const counts = genCounts[Number(span.dataset.gen)];
       span.textContent = wishlist ? `${counts.caught} wanted` : `${counts.caught} / ${counts.total}`;
+    });
+    els.dex.querySelectorAll('.gen-select').forEach((box) => {
+      const cards = box.closest('section.gen').querySelectorAll('button.mon');
+      const marked = box.closest('section.gen').querySelectorAll('button.mon.caught').length;
+      box.checked = marked > 0 && marked === cards.length;
+      box.indeterminate = marked > 0 && marked < cards.length;
+      box.disabled = isFollower(user);
     });
     els.userUpdated.textContent = user
       ? `${kindOf(user) === 'mine' ? 'Your trainer' : 'Friend'} · last updated ${formatDate(user.updatedAt)}`
@@ -975,6 +986,34 @@
     user.updatedAt = new Date().toISOString();
     updateProgress();
     scheduleSave();
+  });
+
+  /* The checkbox next to a generation's title checks every Pokémon shown in that section, or
+     unchecks them all once they are all checked. Only cards shown under the current filters change. */
+  els.dex.addEventListener('change', (event) => {
+    const box = event.target.closest('input.gen-select');
+    if (!box) return;
+    const user = activeUser();
+    if (!user || isFollower(user)) {
+      updateProgress();
+      if (!user) addUser();
+      return;
+    }
+    const section = box.closest('section.gen');
+    const cards = Array.from(section.querySelectorAll('button.mon'));
+    const mark = box.checked;
+    const genName = box.dataset.name;
+    if (!mark && !confirm(`Uncheck all ${cards.length.toLocaleString()} Pokémon shown in ${genName}?`)) {
+      updateProgress();
+      return;
+    }
+    const marks = user.dex[currentTab()];
+    cards.forEach((b) => setMark(marks, b, mark));
+    rangeAnchorId = null;
+    user.updatedAt = new Date().toISOString();
+    updateProgress();
+    scheduleSave();
+    toast(`${mark ? 'Checked' : 'Unchecked'} ${cards.length.toLocaleString()} Pokémon in ${genName}.`);
   });
 
   // Errors on <img> do not bubble, so listen in the capture phase to walk the fallback list.
