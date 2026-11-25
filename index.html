@@ -58,7 +58,7 @@
       <p id="dex-blurb" class="muted"></p>
       <p class="muted small hint">Tip: click a Pokémon, then <kbd>Shift</kbd>+click another to check or uncheck everything in between.</p>
       <p id="wishlist-actions" class="dex-actions" hidden>
-        <button type="button" id="wishlist-sync" class="btn" title="Adds every Pokémon missing from your Lucky Pokédex to your wishlist as P2. Pokémon already on your wishlist keep their priority.">Add missing Luckies as P2</button>
+        <button type="button" id="wishlist-sync" class="btn" title="Adds every Pokémon missing from your Lucky Pokédex to your wishlist as P2. Pokémon already on your wishlist, including ones marked Do not trade, keep their mark.">Add missing Luckies as P2</button>
       </p>
     </div>
     <div class="progress-block">
@@ -81,12 +81,13 @@
       <option value="missing">Missing only</option>
     </select>
     <select id="priority-filter" autocomplete="off" aria-label="Trade priority" hidden>
-      <option value="">Wanted &amp; not wanted</option>
+      <option value="">All Pokémon</option>
       <option value="any">Wanted (any priority)</option>
       <option value="0">P0 only</option>
       <option value="1">P1 only</option>
       <option value="2">P2 only</option>
-      <option value="none">Not wanted</option>
+      <option value="3">Do not trade</option>
+      <option value="none">Not marked</option>
     </select>
     <select id="kind-filter" autocomplete="off" aria-label="Costumes">
       <option value="">Regular &amp; costumes</option>

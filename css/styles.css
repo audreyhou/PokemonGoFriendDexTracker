@@ -142,7 +142,7 @@ kbd {
   background: var(--card);
 }
 .progress-block { min-width: min(320px, 100%); }
-.progress-text { display: flex; justify-content: space-between; margin-bottom: 0.3rem; }
+.progress-text { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.15rem 0.75rem; margin-bottom: 0.3rem; }
 .progress { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .progress span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.2s; }
 .progress-block .small { margin-top: 0.3rem; text-align: right; }
@@ -246,6 +246,11 @@ body[data-tab="lucky"] .mon.caught { background: radial-gradient(circle at 50% 4
   border-radius: 9px;
   background: var(--p-color);
 }
+/* Do not trade: dark grey with a crossed-out badge, and the Pokémon stays faded. */
+.mon[data-p="3"] { --p-color: #475467; --p-soft: #e4e7ec; }
+.mon[data-p="3"] .mon-img { filter: grayscale(1); opacity: 0.3; }
+.mon[data-p="3"] .mon-name { text-decoration: line-through; color: var(--muted); }
+.mon[data-p="3"]::after { content: "✕ No trade"; }
 
 /* ------------------------------------------------------------ footer, toast, overlay, dialog */
 .app-footer { padding: 1.5rem 1.25rem 2.5rem; border-top: 1px solid var(--line); display: grid; gap: 0.3rem; }

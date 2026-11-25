@@ -7,6 +7,9 @@
   const FILE_VERSION = 1;
   const DEX_TYPES = ['original', 'shiny', 'lucky', 'xxl', 'xxs', 'shadow', 'purified', 'perfect'];
   const PRIORITIES = ['p0', 'p1', 'p2']; // trade wishlist priorities, most wanted first
+  // Wishlist marks as saved: the priorities, then Pokémon the trainer does not want in trades.
+  const WISHLIST_KEYS = PRIORITIES.concat('doNotTrade');
+  const DO_NOT_TRADE = PRIORITIES.length;
   const MAX_NAME = 30;
   const SHARE_ID = /^[A-Za-z0-9_-]{12}$/;
   const OWNER_KEY = /^[A-Za-z0-9_-]{20,200}$/;
@@ -24,7 +27,7 @@
   function emptyDex() {
     const dex = {};
     DEX_TYPES.forEach((type) => { dex[type] = new Set(); });
-    dex.wishlist = new Map(); // entry id -> index into PRIORITIES
+    dex.wishlist = new Map(); // entry id -> index into WISHLIST_KEYS (DO_NOT_TRADE = "Do not trade")
     return dex;
   }
 
@@ -57,12 +60,12 @@
         if (isEntryId(id)) dex[type].add(id);
       });
     });
-    // An id listed under several priorities keeps the highest one.
+    // An id listed under several marks keeps the first one (the highest priority).
     const wishlist = source.wishlist && typeof source.wishlist === 'object' ? source.wishlist : {};
-    PRIORITIES.forEach((key, priority) => {
+    WISHLIST_KEYS.forEach((key, mark) => {
       if (!Array.isArray(wishlist[key])) return;
       wishlist[key].forEach((id) => {
-        if (isEntryId(id) && !dex.wishlist.has(id)) dex.wishlist.set(id, priority);
+        if (isEntryId(id) && !dex.wishlist.has(id)) dex.wishlist.set(id, mark);
       });
     });
     const updated = typeof raw.updatedAt === 'string' && !isNaN(Date.parse(raw.updatedAt)) ? raw.updatedAt : new Date().toISOString();
@@ -79,8 +82,8 @@
     const dex = {};
     DEX_TYPES.forEach((type) => { dex[type] = Array.from(user.dex[type]).sort(); });
     dex.wishlist = {};
-    PRIORITIES.forEach((key, priority) => {
-      dex.wishlist[key] = Array.from(user.dex.wishlist).filter(([, p]) => p === priority).map(([id]) => id).sort();
+    WISHLIST_KEYS.forEach((key, mark) => {
+      dex.wishlist[key] = Array.from(user.dex.wishlist).filter(([, m]) => m === mark).map(([id]) => id).sort();
     });
     const data = { username: user.username, updatedAt: user.updatedAt, dex };
     if (local) {
@@ -142,7 +145,7 @@
   }
 
   window.DexStore = {
-    STORAGE_KEY, DEX_TYPES, PRIORITIES, MAX_NAME, SHARE_ID, OWNER_KEY,
+    STORAGE_KEY, DEX_TYPES, PRIORITIES, DO_NOT_TRADE, MAX_NAME, SHARE_ID, OWNER_KEY,
     normalizeUsername, userKey, createUser, toUser, serializeUser, load, save, toFileText, parseFileText,
   };
 })();

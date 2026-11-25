@@ -30,13 +30,16 @@
     perfect: { title: '100% Pokédex', blurb: 'Pokémon you own with perfect 15/15/15 IVs.' },
     wishlist: {
       title: 'Trade Wishlist',
-      blurb: 'Pokémon you want to receive in trades. Click a Pokémon to mark it P0 (most wanted), '
-        + 'click again for P1, then P2, and once more to clear it. Mythical Pokémon that cannot be traded are not listed.',
+      blurb: 'Pokémon you want to receive in trades. Click a Pokémon to mark it P0 (most wanted), click again for P1, '
+        + 'then P2, then Do not trade, and once more to clear it. Mythical Pokémon that cannot be traded are not listed.',
       eligible: (e) => !e.noTrade,
       priorities: true, // marks are a Map of entry id -> priority instead of a Set
     },
   };
-  const PRIORITY_COUNT = Store.PRIORITIES.length;
+  // Wishlist marks: 0-2 are P0-P2 and DO_NOT_TRADE means the trainer does not want it in trades.
+  const DO_NOT_TRADE = Store.DO_NOT_TRADE;
+  const isWanted = (mark) => typeof mark === 'number' && mark < DO_NOT_TRADE;
+  const markLabel = (mark) => (mark === DO_NOT_TRADE ? 'Do not trade' : `P${mark}`);
 
   const $ = (id) => document.getElementById(id);
   const els = {
@@ -186,7 +189,7 @@
   function isVisible(e, caught, lineDexes, priorities) {
     if (filters.gen !== '' && e.gen !== Number(filters.gen)) return false;
     if (priorities) {
-      if (filters.priority === 'any' && !caught.has(e.id)) return false;
+      if (filters.priority === 'any' && !isWanted(caught.get(e.id))) return false;
       if (filters.priority === 'none' && caught.has(e.id)) return false;
       if (/^\d$/.test(filters.priority) && caught.get(e.id) !== Number(filters.priority)) return false;
     } else {
@@ -196,7 +199,7 @@
     return !filters.search || e.key.includes(filters.search) || (!!lineDexes && lineDexes.has(e.dex));
   }
 
-  // `priority` is only given on the wishlist: undefined there means "not wanted".
+  // `priority` is only given on the wishlist: undefined there means "not marked".
   function cardHtml(e, isCaught, shiny, priority) {
     const sources = imageSources(e, shiny);
     const label = `#${pad(e.dex)} ${e.name}`;
@@ -239,7 +242,8 @@
       if (!inPool(e, tab)) return;
       const has = caught.has(e.id);
       genCounts[e.gen].total += 1;
-      if (has) genCounts[e.gen].caught += 1;
+      // On the wishlist only wanted Pokémon count, not ones marked Do not trade.
+      if (config.priorities ? isWanted(caught.get(e.id)) : has) genCounts[e.gen].caught += 1;
       if (!isVisible(e, caught, lineDexes, !!config.priorities)) return;
       if (e.gen !== openGen) {
         if (openGen >= 0) html.push('</div></section>');
@@ -262,15 +266,15 @@
     const pct = total ? Math.floor((caught / total) * 1000) / 10 : 0;
     if (wishlist) {
       // A wishlist is not something to complete, so count what is wanted at each priority instead.
-      const perPriority = Store.PRIORITIES.map(() => 0);
+      const perMark = Store.PRIORITIES.map(() => 0).concat(0); // P0-P2, then Do not trade
       if (user) {
-        user.dex[tab].forEach((priority, id) => {
+        user.dex[tab].forEach((mark, id) => {
           const e = byId.get(id);
-          if (e && inPool(e, tab)) perPriority[priority] += 1;
+          if (e && inPool(e, tab)) perMark[mark] += 1;
         });
       }
       els.progressCount.textContent = `${caught.toLocaleString()} wanted`;
-      els.progressPct.textContent = perPriority.map((n, p) => `P${p}: ${n.toLocaleString()}`).join(' · ');
+      els.progressPct.textContent = perMark.map((n, mark) => `${markLabel(mark)}: ${n.toLocaleString()}`).join(' · ');
     } else {
       els.progressCount.textContent = `${caught.toLocaleString()} / ${total.toLocaleString()}`;
       els.progressPct.textContent = `${pct}%`;
@@ -872,14 +876,16 @@
 
   // ------------------------------------------------------------------ events
 
-  /* A card's mark is true/false on the collection tabs, and a priority (0 = P0) or null on the
-     wishlist, whose marks are a Map of entry id -> priority. */
+  /* A card's mark is true/false on the collection tabs, and a wishlist mark (0 = P0 ...
+     DO_NOT_TRADE) or null on the wishlist, whose marks are a Map of entry id -> mark. */
   const markOf = (marks, id) => (marks instanceof Map ? (marks.has(id) ? marks.get(id) : null) : marks.has(id));
+  // Whether a mark adds to the "caught" / "wanted" counts.
+  const counted = (marks, mark) => (marks instanceof Map ? isWanted(mark) : mark === true);
 
   function setMark(marks, button, mark) {
     const id = button.dataset.id;
-    if (markOf(marks, id) === mark) return;
-    const wasMarked = marks.has(id);
+    const before = markOf(marks, id);
+    if (before === mark) return;
     const marked = mark !== false && mark !== null;
     if (!marked) marks.delete(id);
     else if (marks instanceof Map) marks.set(id, mark);
@@ -888,22 +894,22 @@
     else delete button.dataset.p;
     button.classList.toggle('caught', marked);
     button.setAttribute('aria-pressed', String(marked));
-    if (marked !== wasMarked) genCounts[byId.get(id).gen].caught += marked ? 1 : -1;
+    if (counted(marks, mark) !== counted(marks, before)) genCounts[byId.get(id).gen].caught += counted(marks, mark) ? 1 : -1;
   }
 
-  // Wishlist: not wanted -> P0 -> P1 -> P2 -> not wanted. Other tabs: checked <-> unchecked.
+  // Wishlist: not marked -> P0 -> P1 -> P2 -> Do not trade -> not marked. Other tabs: checked <-> unchecked.
   function nextMark(marks, id) {
     const mark = markOf(marks, id);
     if (!(marks instanceof Map)) return !mark;
     if (mark === null) return 0;
-    return mark + 1 < PRIORITY_COUNT ? mark + 1 : null;
+    return mark < DO_NOT_TRADE ? mark + 1 : null;
   }
 
   const LUCKY_SYNC_PRIORITY = 2; // P2
 
   /* Adds every released, tradeable Pokémon missing from the trainer's Lucky Pokédex to their
-     wishlist as P2. Pokémon already on the wishlist keep their priority and nothing is removed,
-     so syncing again never undoes the trainer's own edits. */
+     wishlist as P2. Pokémon already on the wishlist (including ones marked Do not trade) keep
+     their mark and nothing is removed, so syncing again never undoes the trainer's own edits. */
   function syncLuckyWishlist() {
     const user = activeUser();
     if (!user) {
@@ -920,7 +926,7 @@
     }
     if (!confirm(
       `Add the ${missing.length.toLocaleString()} Pokémon missing from ${user.username}'s Lucky Pokédex to the wishlist as P${LUCKY_SYNC_PRIORITY}?\n\n`
-      + 'Pokémon already on the wishlist keep their priority, and you can change any of them afterwards.',
+      + 'Pokémon already on the wishlist, including ones marked Do not trade, keep their mark, and you can change any of them afterwards.',
     )) return;
     missing.forEach((e) => wishlist.set(e.id, LUCKY_SYNC_PRIORITY));
     user.updatedAt = new Date().toISOString();
@@ -960,7 +966,7 @@
       const range = buttons.slice(from, to + 1);
       range.forEach((b) => setMark(marks, b, mark));
       const count = `${range.length} Pokémon`;
-      if (typeof mark === 'number') toast(`Marked ${count} as P${mark}.`);
+      if (typeof mark === 'number') toast(`Marked ${count} as ${markLabel(mark)}.`);
       else toast(`${mark === null ? 'Cleared' : mark ? 'Checked' : 'Unchecked'} ${count}.`);
     } else {
       setMark(marks, button, nextMark(marks, button.dataset.id));

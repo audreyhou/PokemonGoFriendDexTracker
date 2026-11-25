@@ -46,9 +46,9 @@ test('a shared trainer can be read by anyone and is cleaned like an imported fil
 test('a shared trainer keeps its trade wishlist, with each id at its highest priority', async () => {
   const { api } = setup();
   const t = trainer('2026-11-20T10:00:00.000Z');
-  t.dex.wishlist = { p0: ['f4', 7, ''], p1: ['f5', 'f4'], p2: 'not a list', p9: ['f6'] };
+  t.dex.wishlist = { p0: ['f4', 7, ''], p1: ['f5', 'f4'], p2: 'not a list', p9: ['f6'], doNotTrade: ['f7', 'f5'] };
   const { body: { id } } = await api.create(body(t));
-  assert.deepEqual((await api.get(id)).body.dex.wishlist, { p0: ['f4'], p1: ['f5'], p2: [] });
+  assert.deepEqual((await api.get(id)).body.dex.wishlist, { p0: ['f4'], p1: ['f5'], p2: [], doNotTrade: ['f7'] });
 });
 
 test('only the owner key can update or turn off a share, and followers are notified', async () => {

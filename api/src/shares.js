@@ -4,7 +4,8 @@ const crypto = require('node:crypto');
 const zlib = require('node:zlib');
 
 const DEX_TYPES = ['original', 'shiny', 'lucky', 'xxl', 'xxs', 'shadow', 'purified', 'perfect'];
-const PRIORITIES = ['p0', 'p1', 'p2']; // trade wishlist priorities, most wanted first
+// Trade wishlist marks: priorities (most wanted first), then Pokémon the trainer does not want in trades.
+const WISHLIST_KEYS = ['p0', 'p1', 'p2', 'doNotTrade'];
 const MAX_NAME = 30;
 const MAX_ID_LENGTH = 64;
 const MAX_IDS_PER_TYPE = 5000;
@@ -72,11 +73,11 @@ function parseTrainer(raw) {
     if (ids.size > MAX_IDS_PER_TYPE) throw new HttpError(413, 'the Pokédex is too large');
     dex[type] = Array.from(ids).sort();
   });
-  // An id listed under several priorities keeps the highest one.
+  // An id listed under several marks keeps the first one (the highest priority).
   const wishlist = source.wishlist && typeof source.wishlist === 'object' ? source.wishlist : {};
   const wanted = new Set();
   dex.wishlist = {};
-  PRIORITIES.forEach((key) => {
+  WISHLIST_KEYS.forEach((key) => {
     const ids = new Set();
     if (Array.isArray(wishlist[key])) {
       wishlist[key].forEach((id) => {

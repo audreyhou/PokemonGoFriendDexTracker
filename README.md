@@ -27,12 +27,14 @@ other static host. The live site is published by GitHub Pages from the root of t
   Purified only list Pokémon released as Shadow Pokémon, and Lucky and Wishlist leave out Mythical
   Pokémon that cannot be traded.
 - **Trade Wishlist** – mark the Pokémon you want to receive in trades. Each click moves a Pokémon
-  to the next priority: not wanted → **P0** (most wanted) → **P1** → **P2** → not wanted.
-  <kbd>Shift</kbd>+click gives a range the first Pokémon's priority. On this tab the caught filter
-  is replaced by a priority filter (any priority, P0, P1, P2 or not wanted). **Add missing Luckies
-  as P2** adds every released Pokémon missing from your Lucky Pokédex to the wishlist as P2, so you
-  only need to adjust the rest; Pokémon already on the wishlist keep their priority. The wishlist is
-  included in share links and exported files, so friends can see what you are looking for.
+  to the next mark: not marked → **P0** (most wanted) → **P1** → **P2** → **Do not trade** → not
+  marked. *Do not trade* is for Pokémon you actively don't want friends to send you; they don't
+  count as wanted. <kbd>Shift</kbd>+click gives a range the first Pokémon's mark. On this tab the
+  caught filter is replaced by a priority filter (any priority, P0, P1, P2, Do not trade or not
+  marked). **Add missing Luckies as P2** adds every released Pokémon missing from your Lucky
+  Pokédex to the wishlist as P2, so you only need to adjust the rest; Pokémon already on the
+  wishlist, including ones marked *Do not trade*, keep their mark. The wishlist is included in
+  share links and exported files, so friends can see what you are looking for.
 - **Filters** – search by name or number, filter by generation, caught/missing, or regular forms
   vs. costumes. *Include evolution line* (on by default) only changes search results: a search also
   shows the rest of the searched Pokémon's evolution family (e.g. "pikachu" also shows Pichu and
@@ -90,7 +92,7 @@ the file, so the person importing always chooses. Only your own trainers can be 
       "updatedAt": "2026-11-15T22:29:41.000Z",
       "dex": { "original": ["f87", "c0025Holiday2016"], "shiny": [], "lucky": [], "xxl": [],
                "xxs": [], "shadow": [], "purified": [], "perfect": [],
-               "wishlist": { "p0": ["f13"], "p1": [], "p2": ["c0025Holiday2016"] } }
+               "wishlist": { "p0": ["f13"], "p1": [], "p2": ["c0025Holiday2016"], "doNotTrade": ["f19"] } }
     }
   ]
 }
