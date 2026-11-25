@@ -21,8 +21,8 @@ other static host. The live site is published by GitHub Pages from the root of t
 - **Checking off Pokémon** – click (or tap) a Pokémon image to mark it as owned in the current tab.
   Missing Pokémon are greyed out. To mark many at once, click one Pokémon and then
   <kbd>Shift</kbd>+click another: every Pokémon shown between them gets the same checked or
-  unchecked state as the first one. The checkbox next to each generation's title checks every
-  Pokémon shown in that generation (or unchecks them all once they are all checked).
+  unchecked state as the first one. The **Select all** toggle next to each generation's title
+  checks every Pokémon shown in that generation (or unchecks them all once they are all checked).
 - **Tabs** – each Pokédex is its own page (`#original`, `#shiny`, `#lucky`, `#xxl`, `#xxs`,
   `#shadow`, `#purified`, `#perfect`, `#wishlist`). The Shiny tab shows shiny artwork. Shadow and
   Purified only list Pokémon released as Shadow Pokémon, and Lucky and Wishlist leave out Mythical
