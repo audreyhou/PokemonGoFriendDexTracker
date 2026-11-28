@@ -57,6 +57,7 @@
     shareDialog: $('share-dialog'), shareTitle: $('share-title'), shareIntro: $('share-intro'), shareLinks: $('share-links'),
     shareLink: $('share-link'), shareNative: $('share-native'), syncBlock: $('sync-block'), syncLink: $('sync-link'),
     shareError: $('share-error'), shareStop: $('share-stop'), shareClose: $('share-close'), shareCreate: $('share-create'),
+    zoomOut: $('zoom-out'), zoomReset: $('zoom-reset'), zoomIn: $('zoom-in'),
   };
 
   const gens = DATA.gens;
@@ -1124,8 +1125,37 @@
   });
   window.addEventListener('online', () => schedulePush(0));
 
+  /* Card size for every dex page. It is a display preference of this browser, so it is kept
+     apart from the trainer data and never exported or shared. */
+  const ZOOM_KEY = 'pogo-friend-dex/zoom';
+  const ZOOM_LEVELS = [0.6, 0.75, 1, 1.25, 1.5, 2];
+  let zoomIndex = ZOOM_LEVELS.indexOf(1);
+  function setZoom(index, save = true) {
+    zoomIndex = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, index));
+    const level = ZOOM_LEVELS[zoomIndex];
+    els.dex.style.setProperty('--zoom', String(level));
+    els.zoomReset.textContent = `${Math.round(level * 100)}%`;
+    els.zoomOut.disabled = zoomIndex === 0;
+    els.zoomIn.disabled = zoomIndex === ZOOM_LEVELS.length - 1;
+    if (!save) return;
+    try {
+      localStorage.setItem(ZOOM_KEY, String(level));
+    } catch (err) { /* Storage can be unavailable (e.g. private mode); the size just isn't remembered. */ }
+  }
+  els.zoomOut.addEventListener('click', () => setZoom(zoomIndex - 1));
+  els.zoomIn.addEventListener('click', () => setZoom(zoomIndex + 1));
+  els.zoomReset.addEventListener('click', () => setZoom(ZOOM_LEVELS.indexOf(1)));
+  window.addEventListener('storage', (event) => {
+    if (event.key === ZOOM_KEY) setZoom(Math.max(0, ZOOM_LEVELS.indexOf(Number(event.newValue))), false);
+  });
+
   // ------------------------------------------------------------------ start
 
+  try {
+    const saved = ZOOM_LEVELS.indexOf(Number(localStorage.getItem(ZOOM_KEY)));
+    if (saved >= 0) zoomIndex = saved;
+  } catch (err) { /* keep the default size */ }
+  setZoom(zoomIndex, false);
   gens.forEach(([, name], index) => els.genFilter.add(new Option(`Gen ${index + 1} · ${name}`, String(index))));
   els.dataDate.textContent = formatDate(DATA.generatedAt);
   readFilters();

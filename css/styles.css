@@ -150,6 +150,33 @@ kbd {
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.6rem 1.25rem; }
 .toolbar input[type="search"] { flex: 1 1 14rem; max-width: 22rem; }
 .check { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
+.zoom { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto; }
+.zoom-label { font-size: 0.8rem; color: var(--muted); margin-right: 0.15rem; }
+/* The three zoom buttons share one pill-shaped outline, split by thin dividers. */
+.zoom-pill {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  overflow: hidden;
+}
+.zoom-pill:hover { border-color: var(--accent); }
+.zoom-btn {
+  font: inherit;
+  font-size: 0.9rem;
+  min-width: 2.2rem;
+  padding: 0.35rem 0.6rem;
+  line-height: 1;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.zoom-btn + .zoom-btn { border-left: 1px solid var(--line); }
+.zoom-btn:hover:not(:disabled) { background: var(--accent-soft); }
+.zoom-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.zoom-btn:disabled { opacity: 0.45; cursor: default; }
+.zoom-level { min-width: 3.6rem; font-variant-numeric: tabular-nums; }
 
 .welcome {
   margin: 0.5rem 1.25rem 0;
@@ -162,13 +189,21 @@ kbd {
 .welcome-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 /* ------------------------------------------------------------ dex grid */
-.dex { padding: 0.5rem 1.25rem 2rem; }
+/* --zoom is set from the toolbar's zoom buttons. Text grows at half the rate of the cards so it
+   stays readable when zoomed out. */
+.dex {
+  padding: 0.5rem 1.25rem 2rem;
+  --zoom: 1;
+  --card-min: 96px;
+  --img-size: 72px;
+  --text-zoom: calc(0.5 + var(--zoom) / 2);
+}
 .gen { margin-top: 1rem; }
 .gen h3 { font-size: 1rem; margin-bottom: 0.5rem; display: flex; gap: 0.5rem; align-items: baseline; }
 .gen-select { font-size: 0.8rem; font-weight: 500; padding: 0.2rem 0.7rem; align-self: center; }
 .gen-select[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .gen-count { font-size: 0.85rem; font-weight: 500; color: var(--muted); }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(var(--card-min) * var(--zoom)), 1fr)); gap: 6px; }
 .empty { padding: 2rem 0; text-align: center; color: var(--muted); }
 
 .mon {
@@ -192,17 +227,17 @@ kbd {
 .mon:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .mon:active { transform: scale(0.96); }
 .mon-img {
-  width: 72px;
-  height: 72px;
+  width: calc(var(--img-size) * var(--zoom));
+  height: calc(var(--img-size) * var(--zoom));
   object-fit: contain;
   filter: grayscale(1);
   opacity: 0.35;
   transition: filter 0.15s, opacity 0.15s;
 }
 .mon-img.missing { visibility: hidden; }
-.mon-num { font-size: 0.68rem; color: var(--muted); }
+.mon-num { font-size: calc(0.68rem * var(--text-zoom)); color: var(--muted); }
 .mon-name {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--text-zoom));
   line-height: 1.2;
   text-align: center;
   display: -webkit-box;
@@ -323,7 +358,7 @@ dialog label { font-weight: 600; font-size: 0.9rem; }
 
 @media (max-width: 640px) {
   .app-header, .summary, .toolbar, .dex, .tabs { padding-left: 0.75rem; padding-right: 0.75rem; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
-  .mon-img { width: 60px; height: 60px; }
+  .dex { --card-min: 78px; --img-size: 60px; }
+  .zoom { margin-left: 0; }
   .toolbar input[type="search"] { max-width: none; }
 }

@@ -23,6 +23,9 @@ other static host. The live site is published by GitHub Pages from the root of t
   <kbd>Shift</kbd>+click another: every Pokémon shown between them gets the same checked or
   unchecked state as the first one. The **Select all** toggle next to each generation's title
   checks every Pokémon shown in that generation (or unchecks them all once they are all checked).
+- **Card size** – the **−** / **+** buttons at the end of the filter bar make the Pokémon cards
+  smaller or bigger (60%–200%) on every dex page; click the percentage to go back to 100%. The size
+  is remembered in this browser.
 - **Tabs** – each Pokédex is its own page (`#original`, `#shiny`, `#lucky`, `#xxl`, `#xxs`,
   `#shadow`, `#purified`, `#perfect`, `#wishlist`). The Shiny tab shows shiny artwork. Shadow and
   Purified only list Pokémon released as Shadow Pokémon, and Lucky and Wishlist leave out Mythical

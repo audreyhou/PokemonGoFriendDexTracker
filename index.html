@@ -95,6 +95,14 @@
       <option value="costume">Costumes only</option>
     </select>
     <label class="check"><input type="checkbox" id="unreleased-filter" autocomplete="off"> Include unreleased</label>
+    <div class="zoom" role="group" aria-labelledby="zoom-label">
+      <span id="zoom-label" class="zoom-label">Zoom</span>
+      <span class="zoom-pill">
+        <button type="button" class="zoom-btn" id="zoom-out" aria-label="Zoom out" title="Smaller cards">−</button>
+        <button type="button" class="zoom-btn zoom-level" id="zoom-reset" title="Reset card size to 100%">100%</button>
+        <button type="button" class="zoom-btn" id="zoom-in" aria-label="Zoom in" title="Bigger cards">+</button>
+      </span>
+    </div>
   </section>
 
   <section id="welcome" class="welcome" hidden>
