@@ -152,7 +152,30 @@ kbd {
 .check { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
 .zoom { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto; }
 .zoom-label { font-size: 0.8rem; color: var(--muted); margin-right: 0.15rem; }
-.zoom-btn { min-width: 2.2rem; padding: 0.35rem 0.6rem; line-height: 1; }
+/* The three zoom buttons share one pill-shaped outline, split by thin dividers. */
+.zoom-pill {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  overflow: hidden;
+}
+.zoom-pill:hover { border-color: var(--accent); }
+.zoom-btn {
+  font: inherit;
+  font-size: 0.9rem;
+  min-width: 2.2rem;
+  padding: 0.35rem 0.6rem;
+  line-height: 1;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.zoom-btn + .zoom-btn { border-left: 1px solid var(--line); }
+.zoom-btn:hover:not(:disabled) { background: var(--accent-soft); }
+.zoom-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.zoom-btn:disabled { opacity: 0.45; cursor: default; }
 .zoom-level { min-width: 3.6rem; font-variant-numeric: tabular-nums; }
 
 .welcome {
