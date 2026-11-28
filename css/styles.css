@@ -151,6 +151,7 @@ kbd {
 .toolbar input[type="search"] { flex: 1 1 14rem; max-width: 22rem; }
 .check { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
 .zoom { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto; }
+.zoom-label { font-size: 0.8rem; color: var(--muted); margin-right: 0.15rem; }
 .zoom-btn { min-width: 2.2rem; padding: 0.35rem 0.6rem; line-height: 1; }
 .zoom-level { min-width: 3.6rem; font-variant-numeric: tabular-nums; }
 
